@@ -1781,6 +1781,75 @@ export class Game {
     return null;
   }
 
+  // ── 길안내 ─────────────────────────────────────────────────────
+  /** 지금 안내할 퀘스트: 직접 고른 것 → 진행 중인 메인 → 아무 진행 중 퀘스트 */
+  trackedQuest() {
+    const act = this.hero.quests.filter((q) => !q.done);
+    const pick = act.find((q) => q.id === this.hero.flags.track) ?? act.find((q) => QUESTS[q.id].main) ?? act[0];
+    return pick ?? null;
+  }
+
+  /** 안내 화살표가 가리킬 곳 (현재 맵 좌표). 다른 지역이면 그쪽 출구를 가리킨다. */
+  questTarget(): { x: number; y: number; label: string; exit: boolean; npc?: boolean } | null {
+    const q = this.trackedQuest();
+    if (!q) return null;
+    const def = QUESTS[q.id];
+    const st = def.stages[q.stage];
+    if (!st) return null;
+    const ENEMY_MAP: Record<string, string> = {
+      wolf: 'field', boar: 'field', spider: 'field', goblin: 'field', bandit: 'field', bandit_archer: 'field', masked_orc: 'field',
+      skelet: 'crypt', zombie: 'crypt', tiny_zombie: 'crypt', necromancer: 'crypt',
+    };
+    const MAT_ENEMY: Record<string, string> = { hide: 'boar', silk: 'spider', bone: 'skelet' };
+    const NPC_NAME: Record<string, string> = { elder: '촌장 오스윈', captain: '경비대장 레아', smith: '대장장이 브론', merchant: '행상인 시스', alchemist: '연금술사 리엘', priest: '신관 마렌', stranger: '두건 쓴 방랑자' };
+    let map = '';
+    let label = '';
+    let point: (() => { x: number; y: number } | null) = () => null;
+    const nearestEnemy = (ids: string[]) => () => {
+      let best: { x: number; y: number } | null = null, bd = 1e9;
+      for (const e of this.enemies) if (!e.dead && ids.includes(e.d.id)) { const d = DIST(e, this.p); if (d < bd) { bd = d; best = { x: e.x, y: e.y - 6 }; } }
+      if (best) return best;
+      for (const s of this.map.spawns) if (ids.includes(s.id)) { const d = Math.hypot(s.x - this.p.x, s.y - this.p.y); if (d < bd) { bd = d; best = { x: s.x, y: s.y }; } }
+      return best;
+    };
+    if (st.k === 'talk') {
+      map = 'village';
+      label = NPC_NAME[st.npc] ?? '';
+      point = () => { const n = this.npcs.find((n) => n.id === st.npc); return n ? { x: n.x, y: n.y - 14 } : null; };
+    } else if (st.k === 'kill' || st.k === 'collect') {
+      const ids = st.k === 'kill' ? (Array.isArray(st.enemy) ? st.enemy : [st.enemy]) : [MAT_ENEMY[st.mat] ?? ''];
+      if (st.k === 'collect' && st.mat === 'bone') ids.push('zombie', 'tiny_zombie');
+      map = ENEMY_MAP[ids[0]] ?? 'field';
+      label = ENEMIES[ids[0]]?.name ?? '';
+      // 이미 그 적이 있는 맵에 있으면 그대로 사냥
+      if (this.enemies.some((e) => !e.dead && ids.includes(e.d.id)) || this.map.spawns.some((s) => ids.includes(s.id))) map = this.map.id;
+      point = nearestEnemy(ids);
+    } else if (st.k === 'flag') {
+      const boss: Record<string, [string, string, string]> = {
+        crypt_cleared: ['crypt', 'big_zombie', '묘지기'], king_dead: ['fort', 'bandit_king', '도적왕'], vargon_dead: ['rift', 'big_demon', '바르곤'],
+      };
+      const b = boss[st.flag];
+      if (!b) return null;
+      [map, , label] = b;
+      point = () => {
+        const e = this.enemies.find((e) => e.d.id === b[1] && !e.dead);
+        if (e) return { x: e.x, y: e.y - 12 };
+        const p = this.map.points.boss;
+        return p ? { x: p[0], y: p[1] } : null;
+      };
+    }
+    if (map === this.map.id) {
+      const pt = point();
+      return pt ? { ...pt, label, exit: false, npc: st.k === 'talk' } : null;
+    }
+    // 다른 지역: 다음으로 거쳐 갈 맵의 출구를 가리킨다 (마을 ↔ 평원 ↔ 던전들)
+    const hop = this.map.id === 'field' ? map : 'field';
+    const ex = this.map.exits.find((e) => e.to === hop) ?? this.map.exits.find((e) => e.to === 'field');
+    if (!ex) return null;
+    const names: Record<string, string> = { village: '하스벨 마을', field: '솔라리온 평원', crypt: '지하 묘지', fort: '도적단 요새', rift: '균열의 틈' };
+    return { x: (ex.x + ex.w / 2) * TS, y: (ex.y + ex.h / 2) * TS, label: `${names[ex.to]} 방향 · ${label}`, exit: true };
+  }
+
   npcMarker(npc: string): '!' | '?' | '' {
     for (const q of this.hero.quests) {
       if (q.done) continue;

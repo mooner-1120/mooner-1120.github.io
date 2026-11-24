@@ -824,8 +824,12 @@ export class UI implements UIHooks {
       let prog = '';
       if (st.k === 'kill') prog = ` ${q.count}/${st.n}`;
       if (st.k === 'collect') prog = ` ${Math.min(st.n, countOf(h, 'mat', st.mat))}/${st.n}`;
-      return `<div class="tq ${def.main ? 'main' : ''}"><b>${esc(def.name)}</b><br>· ${esc(st.text)}${prog}</div>`;
-    }).join('');
+      const on = this.g.trackedQuest()?.id === q.id;
+      return `<div class="tq ${def.main ? 'main' : ''} ${on ? 'on' : ''}" data-q="${q.id}" title="클릭하면 이 퀘스트를 길안내합니다"><b>${on ? '➤ ' : ''}${esc(def.name)}</b><br>· ${esc(st.text)}${prog}</div>`;
+    }).join('') + (act.length ? `<div class="tq guide" data-g="1">${h.flags.guideOff ? '길안내 켜기' : '길안내 끄기'}</div>` : '');
+    $('#tracker').querySelectorAll<HTMLElement>('[data-q]').forEach((el) => (el.onclick = () => { sfx('ui'); h.flags.track = el.dataset.q as any; this.dirty = true; }));
+    const gb = $('#tracker').querySelector<HTMLElement>('[data-g]');
+    if (gb) gb.onclick = () => { sfx('ui'); h.flags.guideOff = !h.flags.guideOff; this.dirty = true; };
     this.refreshBuffs();
     // 퀵슬롯 아이콘 갱신
     h.quick.forEach((q, i) => {
@@ -879,6 +883,8 @@ export class UI implements UIHooks {
     for (const e of g.enemies) if (!e.dead) dot(e.x, e.y, e.boss ? '#ff3a3a' : e.aggro ? '#ff7a5a' : '#c04040', e.boss ? 4 : 2);
     for (const n of g.npcs) dot(n.x, n.y, g.npcMarker(n.id) ? '#ffd23e' : '#7fe3ff', 2);
     for (const c of m.chests) if (!g.hero.flags['chest_' + c.id]) dot(c.x * 16 + 8, c.y * 16 + 8, '#ee8e2e', 2);
+    const tg = g.hero.flags.guideOff ? null : g.questTarget();
+    if (tg && Math.floor(g.time * 3) % 2 === 0) dot(tg.x, tg.y, '#facb3e', 4);
     dot(g.p.x, g.p.y, '#ffffff', 3);
   }
 }

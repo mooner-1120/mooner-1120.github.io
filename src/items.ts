@@ -139,7 +139,7 @@ export interface Hero {
   gold: number;
   soul: number;
   quests: QuestState[];
-  flags: Record<string, boolean | number>;
+  flags: Record<string, boolean | number | string>;
   map: string;
   x: number;
   y: number;

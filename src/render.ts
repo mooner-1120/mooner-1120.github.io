@@ -149,6 +149,7 @@ export function renderGame(g: Game): void {
       k++;
     }
   }
+  const guide = drawGuide(g, w, cx, cy);
   w.setTransform(1, 0, 0, 1, 0, 0);
 
   // ── 확대해서 화면에 ──
@@ -188,6 +189,13 @@ export function renderGame(g: Game): void {
   const tg = g.p.target;
   if (tg instanceof Enemy && !tg.dead) {
     w.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // 길안내 글자
+  if (guide) {
+    const [x, y] = [Math.round(guide.lx * S), Math.round(guide.ly * S)];
+    ctx.textAlign = guide.align;
+    outlineText(ctx, guide.text, x, y, `${11 * fsU}px Galmuri11`, '#ffe48a', fsU);
+    ctx.textAlign = 'center';
   }
   // 떠오르는 숫자
   for (const t of g.texts) {
@@ -520,4 +528,79 @@ function drawParticle(w: CanvasRenderingContext2D, q: import('./entities').Parti
       w.fillRect(x, y, q.size, q.size);
       w.globalAlpha = 1;
   }
+}
+
+/** 퀘스트 길안내 화살표: 화면 안이면 목표 위에서 튀고, 밖이면 화면 가장자리에서 방향을 가리킨다 */
+function drawGuide(g: Game, w: CanvasRenderingContext2D, cx: number, cy: number): { lx: number; ly: number; text: string; align: CanvasTextAlign } | null {
+  if (g.p.dead || g.hero.flags.guideOff) return null;
+  const t = g.questTarget();
+  if (!t) return null;
+  const { vw, vh } = g;
+  const sx = t.x - cx, sy = t.y - cy;
+  const dist = Math.round(Math.hypot(t.x - g.p.x, t.y - g.p.y) / 16);
+  const gold = '#facb3e', dark = '#3a2410', light = '#fff3b0';
+  const inside = sx > 10 && sx < vw - 10 && sy > 22 && sy < vh - 10;
+  w.save();
+  w.setTransform(1, 0, 0, 1, 0, 0);
+  if (inside && dist > 1) {
+    // 목표 머리 위에서 통통 튀는 아래 화살표
+    const bob = Math.round(Math.abs(Math.sin(g.time * 4)) * 4);
+    const x = Math.round(sx), y = Math.round(sy) - (t.npc ? 22 : 8) - bob;
+    arrowShape(w, x, y, Math.PI / 2, gold, dark, light);
+    w.restore();
+    return dist > 3 && !t.npc ? { lx: x, ly: y - 10, text: t.label, align: 'center' } : null;
+  }
+  if (inside) { w.restore(); return null; }
+  // 화면 밖: 플레이어에서 목표 쪽 가장자리
+  const px = g.p.x - cx, py = g.p.y - 10 - cy;
+  const ang = Math.atan2(sy - py, sx - px);
+  const mx = 16, mTop = 34, mBot = 34;
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  let k = 1e9;
+  if (dx > 0) k = Math.min(k, (vw - mx - px) / dx);
+  if (dx < 0) k = Math.min(k, (mx - px) / dx);
+  if (dy > 0) k = Math.min(k, (vh - mBot - py) / dy);
+  if (dy < 0) k = Math.min(k, (mTop - py) / dy);
+  const pulse = Math.round(Math.sin(g.time * 6) * 2);
+  const ax = Math.round(px + dx * (k + pulse)), ay = Math.round(py + dy * (k + pulse));
+  arrowShape(w, ax, ay, ang, gold, dark, light);
+  // 플레이어 발밑의 작은 방향 표시
+  const rx = Math.round(px + dx * 14), ry = Math.round(py + 10 + dy * 9);
+  w.globalAlpha = 0.8;
+  w.fillStyle = gold;
+  w.fillRect(rx - 1, ry - 1, 2, 2);
+  w.fillRect(Math.round(px + dx * 18), Math.round(py + 10 + dy * 11), 1, 1);
+  w.globalAlpha = 1;
+  w.restore();
+  const align: CanvasTextAlign = dx > 0.5 ? 'right' : dx < -0.5 ? 'left' : 'center';
+  const lx = ax - dx * 12, ly = ay - dy * 12 + (dy < -0.5 ? 12 : -2);
+  return { lx, ly, text: `${t.label} ${dist}m`, align };
+}
+
+function arrowShape(w: CanvasRenderingContext2D, x: number, y: number, ang: number, fill: string, edge: string, hi: string): void {
+  w.save();
+  w.translate(x, y);
+  w.rotate(ang);
+  const path = () => {
+    w.beginPath();
+    w.moveTo(6, 0);
+    w.lineTo(0, -5);
+    w.lineTo(0, -2);
+    w.lineTo(-6, -2);
+    w.lineTo(-6, 2);
+    w.lineTo(0, 2);
+    w.lineTo(0, 5);
+    w.closePath();
+  };
+  w.lineJoin = 'miter';
+  w.lineWidth = 3;
+  w.strokeStyle = edge;
+  path();
+  w.stroke();
+  w.fillStyle = fill;
+  path();
+  w.fill();
+  w.fillStyle = hi;
+  w.fillRect(-5, -1, 5, 1);
+  w.restore();
 }
