@@ -213,7 +213,7 @@ export class GameMap {
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy) continue;
           const nx = cx + dx, ny = cy + dy;
-          if (this.blocked(nx, ny) || this.avoided(nx, ny, gtx, gty)) continue;
+          if (this.blocked(nx, ny) || this.avoided(nx, ny, gtx, gty, stx, sty)) continue;
           if (dx && dy && (this.blocked(cx + dx, cy) || this.blocked(cx, cy + dy))) continue;
           const n = ny * W + nx;
           const ng = g.get(cur)! + (dx && dy ? Math.SQRT2 : 1);
@@ -250,7 +250,7 @@ export class GameMap {
     for (let i = 1; i <= n; i++) {
       const x = ax + ((bx - ax) * i) / n, y = ay + ((by - ay) * i) / n;
       if (this.hits(x, y, r)) return false;
-      if (this.avoided(Math.floor(x / TS), Math.floor(y / TS), gtx, gty)) return false;
+      if (this.avoided(Math.floor(x / TS), Math.floor(y / TS), gtx, gty, Math.floor(ax / TS), Math.floor(ay / TS))) return false;
     }
     return true;
   }
@@ -258,15 +258,16 @@ export class GameMap {
   // ── 지형 미리 그리기 ─────────────────────────────────────────────
   markExits(): void {
     this.avoid = new Uint8Array(this.w * this.h);
+    // 출구 칸 + 주변 1칸 (출구 판정이 1칸 정도 넉넉하므로)
     for (const e of this.exits)
-      for (let y = e.y; y < e.y + e.h; y++) for (let x = e.x; x < e.x + e.w; x++) if (this.inb(x, y)) this.avoid[this.idx(x, y)] = 1;
+      for (let y = e.y - 1; y < e.y + e.h + 1; y++) for (let x = e.x - 1; x < e.x + e.w + 1; x++) if (this.inb(x, y)) this.avoid[this.idx(x, y)] = 1;
   }
 
-  private avoided(x: number, y: number, gx: number, gy: number): boolean {
+  private avoided(x: number, y: number, gx: number, gy: number, sx = -99, sy = -99): boolean {
     if (!this.inb(x, y) || !this.avoid.length || !this.avoid[this.idx(x, y)]) return false;
     // 목적지가 속한 출구는 허용
-    for (const e of this.exits)
-      if (x >= e.x && x < e.x + e.w && y >= e.y && y < e.y + e.h) return !(gx >= e.x && gx < e.x + e.w && gy >= e.y && gy < e.y + e.h);
+    const inside = (e: Exit, tx: number, ty: number) => tx >= e.x - 1 && tx < e.x + e.w + 1 && ty >= e.y - 1 && ty < e.y + e.h + 1;
+    for (const e of this.exits) if (inside(e, x, y) && !inside(e, gx, gy) && !inside(e, sx, sy)) return true;
     return false;
   }
 

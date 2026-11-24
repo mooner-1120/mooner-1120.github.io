@@ -171,17 +171,31 @@ export class Game {
     this.p.moveGoal = null;
   }
 
-  enemyAt(x: number, y: number, pad = 6): Enemy | null {
+  /** 클릭한 곳 근처의 적 (몸통 중심에서 거리 기준, 넉넉한 판정) */
+  enemyAt(x: number, y: number, pad = 18): Enemy | null {
     let best: Enemy | null = null, bd = 1e9;
     for (const e of this.enemies) {
       if (e.dead) continue;
-      const h = 16 * e.scale;
-      const cy = e.y - h * 0.45;
-      const d = Math.hypot(x - e.x, (y - cy) * 0.8);
-      const rr = Math.max(e.r, 8) + pad + (e.boss ? 8 : 0);
-      if (d < rr && d < bd) { bd = d; best = e; }
+      const h = (e.boss ? 30 : 14) * e.scale;
+      const cy = e.y - h * 0.5;
+      const d = Math.hypot(x - e.x, (y - cy) * 0.85);
+      const rr = Math.max(e.r, 7) + pad + (e.boss ? 12 : 0);
+      if (d < rr && d - rr < bd) { bd = d - rr; best = e; }
     }
     return best;
+  }
+
+  /** 지금 싸우던 적을 쓰러뜨리면 근처에서 덤비는 다음 적 */
+  nextTarget(): Enemy | null {
+    let best: Enemy | null = null, bd = 90;
+    for (const e of this.enemies) if (!e.dead && e.aggro && DIST(e, this.p) < bd) { bd = DIST(e, this.p); best = e; }
+    return best;
+  }
+
+  /** 출구 판정 범위: 출구 칸에서 약 1칸 바깥까지 */
+  nearExit(ex: Exit, px: number, py: number, pad = 0.9): boolean {
+    const tx = px / TS, ty = py / TS;
+    return tx >= ex.x - pad && tx < ex.x + ex.w + pad && ty >= ex.y - pad && ty < ex.y + ex.h + pad;
   }
   npcAt(x: number, y: number): NpcEnt | null {
     for (const n of this.npcs) if (Math.hypot(x - n.x, y - (n.y - 10)) < 12) return n;
@@ -191,7 +205,7 @@ export class Game {
   clickAt(wx: number, wy: number): void {
     const p = this.p;
     if (!p || p.dead) return;
-    const e = this.enemyAt(wx, wy, this.touch ? 14 : 6);
+    const e = this.enemyAt(wx, wy, this.touch ? 26 : 18);
     if (e) {
       p.target = e;
       p.path = [];
@@ -216,6 +230,15 @@ export class Game {
     }
     p.target = null;
     (p as any).chestGoal = null;
+    for (const ex of this.map.exits) {
+      if (this.nearExit(ex, wx, wy, 1.5)) {
+        const ex2 = Math.min(Math.max(wx / TS, ex.x + 0.5), ex.x + ex.w - 0.5) * TS;
+        const ey2 = Math.min(Math.max(wy / TS, ex.y + 0.5), ex.y + ex.h - 0.5) * TS;
+        this.pathTo(ex2, ey2);
+        this.spawnClickFx(ex2, ey2);
+        return;
+      }
+    }
     this.pathTo(wx, wy);
     this.spawnClickFx(wx, wy);
   }
@@ -302,6 +325,7 @@ export class Game {
     this.p.path = [];
     this.p.target = null;
     this.p.dash = null;
+    (this as any).exitGrace = true;
     this.p.roll = null;
     this.cam.x = this.p.x - this.vw / 2;
     this.cam.y = this.p.y - this.vh / 2;
@@ -532,7 +556,7 @@ export class Game {
     let mvx = 0, mvy = 0;
     const tgt = p.target;
     if (tgt instanceof Enemy) {
-      if (tgt.dead) p.target = null;
+      if (tgt.dead) p.target = this.nextTarget();
       else {
         const range = CLASSES[this.hero.cls].basic.range + tgt.r;
         const dd = DIST(tgt, p);
@@ -1231,7 +1255,7 @@ export class Game {
     this.onKill(e.d.id);
     if (e.spawn?.respawn) this.respawns.push({ def: e.spawn, t: e.spawn.respawn });
     if (e.boss) this.bossKilled(e);
-    if (this.p.target === e) this.p.target = null;
+    if (this.p.target === e) this.p.target = this.nextTarget();
     this.ui.hudDirty();
   }
 
@@ -1621,9 +1645,14 @@ export class Game {
     const p = this.p;
     if (p.dead || this.fadeTo) return;
     this.exitMsgT -= dt;
-    const tx = p.x / TS, ty = p.y / TS;
-    for (const ex of this.map.exits) {
-      if (tx >= ex.x && tx < ex.x + ex.w && ty >= ex.y && ty < ex.y + ex.h) {
+    // 도착 직후에는 출구 범위를 한 번 벗어나야 다시 이동된다 (왔다 갔다 반복 방지)
+    const near = this.map.exits.filter((ex) => this.nearExit(ex, p.x, p.y));
+    if ((this as any).exitGrace) {
+      if (!near.length) (this as any).exitGrace = false;
+      return this.arenaCheck();
+    }
+    for (const ex of near) {
+      {
         if (ex.locked && !this.hero.flags[ex.locked]) {
           if (this.exitMsgT <= 0) { this.ui.toast(ex.lockMsg ?? '잠겨 있다', '#ffb0a0'); this.exitMsgT = 3; }
           this.bounceFrom(ex);
@@ -1634,6 +1663,11 @@ export class Game {
         return;
       }
     }
+    this.arenaCheck();
+  }
+
+  arenaCheck(): void {
+    const p = this.p;
     // 요새 보스 방 잠금
     if (this.map.id === 'fort' && !this.hero.flags.king_dead) {
       if (!this.arenaLocked && p.x > 36.5 * TS) {
@@ -1650,8 +1684,7 @@ export class Game {
     const p = this.p;
     const cx = (ex.x + ex.w / 2) * TS, cy = (ex.y + ex.h / 2) * TS;
     const a = ANG(cx, cy, p.x, p.y);
-    p.x += Math.cos(a) * 6;
-    p.y += Math.sin(a) * 6;
+    this.moveActor(p, Math.cos(a) * 6, Math.sin(a) * 6);
     p.path = [];
     p.holdDir = null;
   }
