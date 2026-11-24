@@ -158,10 +158,14 @@ export function buildField(): GameMap {
   m.fillRect(15, 5, 11, 7, T.Dirt);
   for (let y = 5; y < 12; y++) for (let x = 15; x < 26; x++) m.solid[m.idx(x, y)] = 0;
   m.objects = m.objects.filter((o) => !(o.x > 14 * TS && o.x < 27 * TS && o.y > 4 * TS && o.y < 13 * TS));
-  obj(m, 'o_crypt', 20, 7, 3, 1);
+  // 입구 건물: 뒤쪽 벽과 양옆만 막고, 가운데 계단 칸은 비워 둔다
+  obj(m, 'o_crypt', 20, 7, 0, 0);
+  for (let x = 18; x <= 22; x++) for (let y = 5; y <= 6; y++) m.solid[m.idx(x, y)] = 1;
+  m.solid[m.idx(19, 7)] = 1;
+  m.solid[m.idx(21, 7)] = 1;
   for (const [x, y, k] of [[16, 9, 0], [17, 11, 1], [24, 9, 0], [25, 11, 1], [16, 6, 1], [25, 6, 0]] as const) obj(m, k ? 'o_grave_1' : 'o_grave_0', x, y, 1, 1);
   tree(m, 14, 4, 4); tree(m, 27, 5, 4);
-  m.exits.push({ x: 19, y: 7, w: 3, h: 1, to: 'crypt', spawn: 'start', label: '잊혀진 지하 묘지' });
+  m.exits.push({ x: 20, y: 7, w: 1, h: 1, to: 'crypt', spawn: 'start', label: '잊혀진 지하 묘지' });
   // 도적단 요새 문 (동쪽 끝)
   m.fillRect(84, 26, 10, 14, T.Dirt);
   for (let y = 22; y < 44; y++) for (let x = 84; x < W; x++) m.solid[m.idx(x, y)] = 0;

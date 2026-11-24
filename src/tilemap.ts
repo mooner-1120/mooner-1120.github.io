@@ -70,6 +70,8 @@ export class GameMap {
   safe = false;
   wallStyle: 'dungeon' | 'none' = 'none';
   groundCanvas: HTMLCanvasElement | null = null;
+  /** 출구 칸: 길찾기가 목적지가 아니면 피해 간다 (지나가다 다른 지역으로 빠지지 않게) */
+  avoid: Uint8Array = new Uint8Array(0);
   animCells: number[] = [];
 
   constructor(
@@ -211,7 +213,7 @@ export class GameMap {
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy) continue;
           const nx = cx + dx, ny = cy + dy;
-          if (this.blocked(nx, ny)) continue;
+          if (this.blocked(nx, ny) || this.avoided(nx, ny, gtx, gty)) continue;
           if (dx && dy && (this.blocked(cx + dx, cy) || this.blocked(cx, cy + dy))) continue;
           const n = ny * W + nx;
           const ng = g.get(cur)! + (dx && dy ? Math.SQRT2 : 1);
@@ -244,15 +246,32 @@ export class GameMap {
   clearLine(ax: number, ay: number, bx: number, by: number, r = 5): boolean {
     const d = Math.hypot(bx - ax, by - ay);
     const n = Math.ceil(d / 4);
+    const gtx = Math.floor(bx / TS), gty = Math.floor(by / TS);
     for (let i = 1; i <= n; i++) {
       const x = ax + ((bx - ax) * i) / n, y = ay + ((by - ay) * i) / n;
       if (this.hits(x, y, r)) return false;
+      if (this.avoided(Math.floor(x / TS), Math.floor(y / TS), gtx, gty)) return false;
     }
     return true;
   }
 
   // ── 지형 미리 그리기 ─────────────────────────────────────────────
+  markExits(): void {
+    this.avoid = new Uint8Array(this.w * this.h);
+    for (const e of this.exits)
+      for (let y = e.y; y < e.y + e.h; y++) for (let x = e.x; x < e.x + e.w; x++) if (this.inb(x, y)) this.avoid[this.idx(x, y)] = 1;
+  }
+
+  private avoided(x: number, y: number, gx: number, gy: number): boolean {
+    if (!this.inb(x, y) || !this.avoid.length || !this.avoid[this.idx(x, y)]) return false;
+    // 목적지가 속한 출구는 허용
+    for (const e of this.exits)
+      if (x >= e.x && x < e.x + e.w && y >= e.y && y < e.y + e.h) return !(gx >= e.x && gx < e.x + e.w && gy >= e.y && gy < e.y + e.h);
+    return false;
+  }
+
   prerender(): void {
+    this.markExits();
     const cv = document.createElement('canvas');
     cv.width = this.w * TS;
     cv.height = this.h * TS;
