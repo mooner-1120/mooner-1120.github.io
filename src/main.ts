@@ -92,18 +92,25 @@ function slots(mode: 'new' | 'load') {
   }).join('');
   screen().innerHTML = `<div class="panel center slots"><h2>${mode === 'new' ? '새 게임 — 슬롯 선택' : '이어하기'}</h2>${rows}<button class="btn" id="back">돌아가기</button></div>`;
   document.getElementById('back')!.onclick = () => { sfx('ui'); title(); };
+  const ask = (el: HTMLElement, msg: string, yes: () => void) => {
+    el.onclick = null;
+    el.innerHTML = `<div><b>${msg}</b></div><button class="btn sm" data-y>예</button><button class="btn sm" data-n>아니오</button>`;
+    (el.querySelector('[data-y]') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); sfx('ui'); yes(); };
+    (el.querySelector('[data-n]') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); sfx('ui'); slots(mode); };
+  };
   screen().querySelectorAll<HTMLElement>('.slotrow').forEach((el) => (el.onclick = (ev) => {
     if ((ev.target as HTMLElement).dataset.d) return;
     const i = +el.dataset.i!;
     const s = loadSlot(i);
     sfx('ui');
     if (mode === 'load') { if (s) startGame(i, s.hero); return; }
-    if (s && !confirm(`슬롯 ${i + 1}의 ${s.hero.name}을(를) 지우고 새로 시작할까요?`)) return;
-    create(i);
+    if (s) ask(el, `슬롯 ${i + 1}의 ${esc(s.hero.name)}을(를) 지우고 새로 시작할까요?`, () => create(i));
+    else create(i);
   }));
-  screen().querySelectorAll<HTMLElement>('[data-d]').forEach((b) => (b.onclick = () => {
+  screen().querySelectorAll<HTMLElement>('[data-d]').forEach((b) => (b.onclick = (ev) => {
+    ev.stopPropagation();
     const i = +b.dataset.d!;
-    if (confirm(`슬롯 ${i + 1}을(를) 삭제할까요?`)) { deleteSlot(i); slots(mode); }
+    ask(b.closest('.slotrow') as HTMLElement, `슬롯 ${i + 1}을(를) 삭제할까요?`, () => { deleteSlot(i); slots(mode); });
   }));
 }
 
