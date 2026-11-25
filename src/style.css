@@ -269,3 +269,10 @@ table.keys td:first-child { color: var(--gold); white-space: nowrap; }
 .bigcode { font-size: 34px; letter-spacing: 8px; color: #7fe3ff; background: #1a1214; padding: 6px 18px; border: 2px solid #3a5a60; }
 .plist { list-style: none; padding: 0; margin: 0; text-align: left; font-size: 13px; line-height: 1.7; }
 .warn { color: #ffb0a0; font-size: 12px; }
+
+.scene, .ending { width: min(620px, 94vw); line-height: 1.7; }
+.scene p, .ending p { margin: 0; text-align: left; }
+.ending .epi { color: #ffe9a8; }
+.pacts { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--dim); }
+.pacts .ok { color: #9be06a; }
+.bubble { position: absolute; }

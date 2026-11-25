@@ -9,7 +9,7 @@ import type { Game, UIHooks } from './game';
 import {
   addToInv, baseOf, canEquip, countOf, Hero, InvEntry, itemName, itemPrice, itemTooltip, makeItem, rollRarity, slotFor, entryIcon,
 } from './items';
-import { greeting, priceMul, QUESTS } from './quests';
+import { ENDINGS, EPILOGUE, greeting, priceMul, QUESTS } from './quests';
 import { HEALERS, MAP_NAME, SHOP_KIND, SHOP_TITLE, SMITHS } from './homes';
 import { actionFor, keyOf } from './keys';
 import { helpHtml, renderSettings } from './settings';
@@ -202,9 +202,13 @@ export class UI implements UIHooks {
   }
   showChapterClear(chapter = 1): void {
     sfx('levelup');
-    const ch = chapter === 2
-      ? { title: '엘프와의 맹약', body: '타락한 정령 실바레스를 정화하고 실바넬과 새로운 맹약을 맺었다.<br>두 번째 왕관 조각이 아이언후드 산맥의 용광로를 가리킨다.', next: '3장 「아이언후드의 용광로」는 다음 업데이트에서 이어집니다. 그동안 균열의 틈에 도전해 보세요.' }
-      : { title: '왕관 행방의 단서', body: '도적왕 가르토를 쓰러뜨리고 왕관의 조각을 되찾았다.<br>조각의 문양은 엘프의 숲, 실바넬을 가리킨다.', next: '2장이 시작된다: 실바넬 숲 마을의 장로 탈리온을 찾아가라. 남동쪽 평원의 균열은 서브 퀘스트로 도전할 수 있다.' };
+    const CH: Record<number, { title: string; body: string; next: string }> = {
+      1: { title: '왕관 행방의 단서', body: '왕관은 도둑맞은 것이 아니라, 왕의 명령으로 흩어진 것이었다.<br>가르토는 마지막 명령을 지켰고, 섭정 모르데인은 보석을 원한다. 바르곤은 이상한 말을 남기고 물러났다.', next: '2장이 시작된다: 실바넬 숲 마을의 여왕 엘라리엔을 찾아가라. 대륙 곳곳에 기억의 틈이 열렸다.' },
+      2: { title: '엘프와의 맹약', body: '타락한 정령 실바레스를 정화하고 생명석을 맡았다.<br>잠에서 깬 현자 오르웬: "왕관이 무엇을 먹고 빛났는지부터 알아라."', next: '3장이 시작된다: 아이언후드 광산 마을의 길드장 브론 딥해머를 찾아가라.' },
+      3: { title: '드워프의 협력', body: '단조 연대기가 진실을 말했다. 왕관의 불은 노르하임에서 빼앗은 첫 불꽃이었다.<br>그 불에는 한 민족의 영혼이 묶여 있다.', next: '4장이 시작된다: 붉은 평원 야영지의 족장 그롬마를 찾아가라.' },
+      4: { title: '오크 부족 통일', body: '부족들은 다시 하나가 되었다. 그리고 섭정 모르데인은 가면을 벗었다.<br>네 개의 보석과 세라가 북쪽으로 끌려갔다.', next: '최종장이 시작된다: 그림자 은신처의 베스페라와 함께 균열의 땅으로.' },
+    };
+    const ch = CH[chapter] ?? CH[1];
     this.openModal('clear', `
       <div class="panel center clear">
         <div class="kicker">CHAPTER ${chapter} CLEAR</div>
@@ -220,6 +224,24 @@ export class UI implements UIHooks {
     const g = this.g;
     sfx('ui');
     const prog = g.talkProgress(n.id);
+    if (prog?.choice) {
+      const c = prog.choice;
+      const ask = () => {
+        const opts = c.options.map((o, i) => ({
+          label: o.ok ? o.label : `🔒 ${o.label}`,
+          fn: () => {
+            if (!o.ok) { this.toast(o.reqText ?? '조건이 부족하다', '#ff9a8a'); sfx('deny'); return; }
+            const lines = g.choose(c.qid, i);
+            this.showTalk(n, lines.length ? lines : ['...'], () => this.closeModal());
+          },
+        }));
+        opts.push({ label: '조금 더 생각해 본다', fn: () => this.closeModal() });
+        this.showOptions(n, c.prompt, opts);
+      };
+      if (prog.lines.length) this.showTalk(n, prog.lines, ask);
+      else ask();
+      return;
+    }
     if (prog) {
       this.showTalk(n, prog.lines, () => this.talk(n));
       return;
@@ -239,6 +261,17 @@ export class UI implements UIHooks {
 
   npcServices(n: NpcEnt): void {
     const opts: { label: string; fn: () => void }[] = [];
+    if (n.id === 'eira' && !this.hero.flags.eira_saved) {
+      opts.push({
+        label: '쇠사슬을 끊는다',
+        fn: () => {
+          sfx('smith_ok');
+          this.g.setFlag('pact_demon');
+          this.g.setFlag('eira_saved');
+          this.showTalk(n, ['(쇠사슬이 끊어지자 에이라가 비틀거리며 일어선다)', '"세라... 그 아이가 살아 있는 거지? 은신처로 먼저 가 있을게. 결사의 모두에게 네 이름을 전할게."', '(잿불 결사가 너를 동족으로 받아들였다 — 마족과의 맹약)'], () => this.closeModal());
+        },
+      });
+    }
     if (SMITHS.has(n.id)) {
       opts.push({ label: '장비 강화', fn: () => this.openSmith(n.id) });
       opts.push({ label: '장비 구매', fn: () => this.openShop(n.id) });
@@ -309,6 +342,33 @@ export class UI implements UIHooks {
         <div class="opts">${opts.map((o, i) => `<button class="btn" data-i="${i}">${esc(o.label)}</button>`).join('')}</div></div>
       </div>`, true);
     $('#modal').querySelectorAll<HTMLButtonElement>('.opts button').forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); sfx('ui'); opts[+b.dataset.i!].fn(); }));
+  }
+
+  /** 기억의 틈 · 벽화 장면 */
+  showScene(title: string, lines: string[]): void {
+    this.openModal('scene', `
+      <div class="panel center scene">
+        <div class="kicker">${esc(title)}</div>
+        ${lines.map((l) => `<p>${esc(l)}</p>`).join('')}
+        <button class="btn big" id="sceneOk">돌아오기</button>
+      </div>`);
+    $('#sceneOk').onclick = () => { sfx('ui'); this.closeModal(); };
+  }
+
+  showEnding(id: string): void {
+    const e = ENDINGS[id];
+    if (!e) return;
+    sfx('levelup');
+    this.openModal('ending', `
+      <div class="panel center ending">
+        <div class="kicker">THE END</div>
+        <h2>${esc(e.title)}</h2>
+        ${e.body.map((l) => `<p>${esc(l)}</p>`).join('')}
+        <p class="epi">${esc(EPILOGUE[this.hero.race])}</p>
+        <p class="dim small">플레이 시간 ${fmtTime(this.hero.playtime)} · 처치 ${this.hero.kills} · Lv.${this.hero.level}<br>${id !== 'ending_2' ? '다른 엔딩도 있습니다. 다섯 종족과의 맹약, 단조 연대기, 가르토, 노르하임의 기억, 에이라... 퀘스트 창에서 조건을 확인해 보세요.' : '진 엔딩을 보셨습니다. 함께해 주셔서 고맙습니다.'}</p>
+        <button class="btn big" id="endOk">계속 플레이하기</button>
+      </div>`);
+    $('#endOk').onclick = () => this.closeModal();
   }
 
   // ── 모달 ───────────────────────────────────────────────────────
@@ -579,7 +639,7 @@ export class UI implements UIHooks {
         <span class="dim small">보상: EXP ${r.xp} · ${r.gold}G${r.soul ? ` · 영혼석 ${r.soul}` : ''}${r.equip ? ' · 장비' : ''}${r.items ? ' · 소모품' : ''}</span></div>`;
     };
     return `<div class="quests">${active.map(row).join('') || '<span class="dim">진행 중인 퀘스트가 없습니다. 머리 위에 ! 가 뜬 NPC를 찾아보세요.</span>'}
-      ${done.length ? `<h4>완료</h4>${done.map((q) => `<div class="qdone">✔ ${esc(QUESTS[q.id].name)}</div>`).join('')}` : ''}</div>`;
+      ${done.length ? `<h4>완료</h4>${done.map((q) => `<div class="qdone">✔ ${esc(QUESTS[q.id].name)}</div>`).join('')}` : ''}</div>${this.hero.flags.ch1_clear ? `<h4>다섯 종족의 맹약 · 진 엔딩 조건</h4><div class="pacts">${this.g.trueEndChecks().map((c) => `<div class="${c.ok ? 'ok' : ''}">${c.ok ? '✔' : '·'} ${esc(c.label)}</div>`).join('')}</div>` : ''}`;
   }
 
   // ── 상점 ───────────────────────────────────────────────────────

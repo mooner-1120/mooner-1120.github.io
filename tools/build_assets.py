@@ -1076,6 +1076,52 @@ for n in anim_names("elf_f"):
         add(n.replace("elf_f", "dryad"), recolor(FRAMES[n], DRYAD))
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 9) 세계관 확장 — 이야기 인물과 3~5장 적
+# ═══════════════════════════════════════════════════════════════════
+def recolor_set(src_base, dst_base, mapping, deco=None, kinds=("idle", "run", "hit")):
+    for k in kinds:
+        names = [n for n in FRAMES if n.startswith(f"{src_base}_{k}_anim_f")] or ([n for n in FRAMES if n.startswith(f"{src_base}_anim_f")] if k == "idle" else [])
+        for n in names:
+            img = recolor(FRAMES[n], mapping)
+            if deco:
+                img = deco(img, n)
+            add(n.replace(src_base, dst_base, 1), img)
+
+
+# 잿빛 짐승(프롤로그): 재처럼 바랜 늑대, 불씨 같은 눈
+recolor_set("wolf", "ash_wolf", {"7b8994": "545454", "b6cbcf": "8a8a8a", "314152": "2a2a2a"}, kinds=("idle", "run"))
+for n in [k for k in FRAMES if k.startswith("ash_wolf_")]:
+    img = FRAMES[n].copy()
+    put(img, 15, 6 + (1 if img.getpixel((15, 7))[3] and img.getpixel((15, 6)) == OUT else 0), P["orange"])
+    FRAMES[n] = img
+# 엘프 여왕 엘라리엔: 은발 · 흰 옷 · 금 장식
+recolor_set("elf_f", "elf_queen", {"facb3e": "e8ecf4", "ee8e2e": "b6cbcf", "c56025": "7b8994", "4ba747": "fdf7ed", "3d734f": "d3bfa9", "97da3f": "facb3e"})
+# 현자 오르웬: 나무껍질 같은 갈색 · 이끼 수염
+recolor_set("wizzard_m", "orwen", {"5698cc": "3d734f", "5956bd": "2f5a40", "fdf7ed": "97da3f", "d3bfa9": "4ba747", "b58057": "8a503e"})
+# 길드장 브론 딥해머: 검은 수염 · 금 장식 옷
+recolor_set("dwarf_m", "dwarf_guild", {"da4e38": "3b2a2a", "e46e33": "5c3326", "7b8994": "facb3e", "775c55": "c56025"})
+# 섭정 재상 모르데인: 검붉은 예복 · 회색 수염
+recolor_set("wizzard_m", "mordain", {"5698cc": "62232f", "5956bd": "3b1a22", "fdf7ed": "b6cbcf", "d3bfa9": "7b8994", "b58057": "facb3e"})
+# 잿빛 왕(모르데인 보스): 재로 변한 몸, 불씨
+recolor_set("wizzard_m", "ash_king", {"5698cc": "545454", "5956bd": "2a2a2a", "fdf7ed": "ee8e2e", "d3bfa9": "da4e38", "b58057": "facb3e", "8a503e": "3f3f3f"})
+# 왕국 근위병: 검붉은 판금
+recolor_set("knight_m", "royal_guard", {"72d6ce": "8f4029", "417089": "62232f", "da4e38": "facb3e", "ee8e2e": "ee8e2e"})
+# 세라: 붉은 머리 · 작은 뿔 · 보라 옷 (인간과 마족의 피)
+recolor_set("elf_f", "sera", {"fccba3": "f2d6e0", "d8a57d": "d6b0c4", "e2b694": "e4c2d2", "facb3e": "da4e38", "ee8e2e": "8f4029", "c56025": "62232f",
+                              "4ba747": "9f294e", "3d734f": "5f2d56", "97da3f": "dc4a7b"}, deco=demon_deco)
+# 에이라: 창백한 마족, 흰 머리
+recolor_set("demon_f", "eira", {"3b2a4a": "e8ecf4", "2a2a3a": "b6cbcf", "5f2d56": "314152", "9f294e": "5698cc"})
+# 3장: 용암 슬라임 · 바위 골렘 · 용광로 골렘(보스)
+recolor_set("swampy", "magma_slime", {"97da3f": "facb3e", "49a790": "ee8e2e", "417089": "da4e38"})
+recolor_set("muddy", "stone_golem", {"775c55": "7b8994", "483b3a": "414859", "5f2d56": "ee8e2e"})
+recolor_set("ogre", "forge_golem", {"3d734f": "7b8994", "8f4029": "da4e38", "62232f": "ee8e2e", "314152": "414859"}, kinds=("idle", "run"))
+# 4장: 대족장 카르쿠쉬(전쟁 칠을 한 오거)
+recolor_set("ogre", "karkush", {"8f4029": "62232f", "314152": "da4e38"}, kinds=("idle", "run"))
+# 5장: 마왕 벨카르 — 재가 된 몸 반쪽, 첫 불꽃
+recolor_set("big_demon", "belkar", {"da4e38": "3f3f3f", "9f294e": "ee8e2e", "fdf7ed": "facb3e"}, kinds=("idle", "run"))
+
+
 def pack(frames, width=1024):
     items = sorted(frames.items(), key=lambda kv: (-kv[1].height, kv[0]))
     x = y = 0

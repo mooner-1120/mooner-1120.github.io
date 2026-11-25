@@ -10,33 +10,47 @@ export const HOME: Record<RaceId, { map: string; leader: string; name: string }>
 };
 
 export const NPC_MAP: Record<string, string> = {
-  elder: 'village', captain: 'village', smith: 'village', merchant: 'village', alchemist: 'village', priest: 'village', stranger: 'village',
-  elf_leader: 'elfhome', elf_merchant: 'elfhome', elf_guard: 'elfhome',
+  elder: 'village', captain: 'village', smith: 'village', merchant: 'village', alchemist: 'village', priest: 'village', stranger: 'village', mordain: 'village',
+  elf_leader: 'elfhome', elf_merchant: 'elfhome', elf_guard: 'elfhome', orwen: 'elfhome',
   dwarf_leader: 'dwarfhome', dwarf_smith: 'dwarfhome', dwarf_miner: 'dwarfhome',
-  orc_leader: 'orchome', orc_shaman: 'orchome', orc_arena: 'orchome',
+  orc_leader: 'orchome', orc_shaman: 'orchome', orc_arena: 'orchome', vesper_visit: 'orchome', royal_captain: 'orchome',
   demon_leader: 'demonhome', imp_merchant: 'demonhome', demon_exile: 'demonhome',
+  vargon: 'riftland', eira: 'obsidian', sera: 'throne',
 };
+/** 이야기 진행에 따라 사는 곳이 바뀌는 NPC */
+export function npcMapFor(id: string, flags: Record<string, unknown>): string {
+  if (id === 'garto') return flags.garto_hasvel ? 'village' : 'fort';
+  if (id === 'sera') return flags.sera_taken ? 'throne' : 'demonhome';
+  if (id === 'eira') return flags.eira_saved ? 'demonhome' : 'obsidian';
+  return NPC_MAP[id] ?? 'village';
+}
 
 export const NPC_NAME: Record<string, string> = {
-  elder: '촌장 오스윈', captain: '경비대장 레아', smith: '대장장이 브론', merchant: '행상인 시스', alchemist: '연금술사 리엘', priest: '신관 마렌', stranger: '두건 쓴 방랑자',
-  elf_leader: '숲의 장로 탈리온', elf_merchant: '약초상 미렐', elf_guard: '숲지기 아엘린',
-  dwarf_leader: '광산 족장 브룸가르', dwarf_smith: '대장장이 헬가', dwarf_miner: '광부 토르비',
-  orc_leader: '족장 우르가', orc_shaman: '주술사 모그', orc_arena: '투기장지기 크락',
-  demon_leader: '계약자 모르가스', imp_merchant: '임프 상인 키키', demon_exile: '망명자 리스',
+  elder: '촌장 에드릭', captain: '경비대장 레아', smith: '대장장이 하겐', merchant: '행상인 시스', alchemist: '연금술사 리엘', priest: '신관 마렌', stranger: '두건 쓴 방랑자',
+  mordain: '섭정 재상 모르데인', garto: '가르토',
+  elf_leader: '여왕 엘라리엔', elf_merchant: '약초상 미렐', elf_guard: '숲지기 아엘린', orwen: '현자 오르웬',
+  dwarf_leader: '길드장 브론 딥해머', dwarf_smith: '대장장이 헬가', dwarf_miner: '광부 토르비',
+  orc_leader: '족장 그롬마', orc_shaman: '주술사 모그', orc_arena: '투기장지기 크락', vesper_visit: '베스페라', royal_captain: '왕국군 대장',
+  demon_leader: '잿불 결사의 베스페라', imp_merchant: '임프 상인 키키', demon_exile: '망명자 리스', sera: '세라',
+  vargon: '선봉대장 바르곤', eira: '에이라',
 };
 
 export const MAP_NAME: Record<string, string> = {
   village: '하스벨 마을', field: '솔라리온 평원', crypt: '지하 묘지', fort: '도적단 요새', rift: '균열의 틈',
   elfhome: '실바넬 숲 마을', dwarfhome: '아이언후드 광산 마을', orchome: '붉은 평원 야영지', demonhome: '그림자 은신처',
   forest: '실바넬의 썩은 숲', grove: '타락한 고목의 심장',
+  forge: '태초의 용광로', redplains: '붉은 평원 전장', warcamp: '카르쿠쉬의 전쟁 진영',
+  riftland: '균열의 땅', obsidian: '흑요 요새', throne: '왕좌의 방',
 };
 
 /** 지역 연결 (길안내가 거쳐 갈 지역을 고를 때 쓴다) */
 export const MAP_LINKS: Record<string, string[]> = {
   field: ['village', 'crypt', 'fort', 'rift', 'elfhome', 'dwarfhome', 'orchome', 'demonhome'],
-  village: ['field'], crypt: ['field'], fort: ['field'], rift: ['field'],
-  elfhome: ['field', 'forest'], dwarfhome: ['field'], orchome: ['field'], demonhome: ['field'],
-  forest: ['elfhome', 'grove'], grove: ['forest'],
+  village: ['field'], crypt: ['field'], fort: ['field'], rift: ['field', 'riftland'],
+  elfhome: ['field', 'forest'], dwarfhome: ['field', 'forge'], orchome: ['field', 'redplains'], demonhome: ['field'],
+  forest: ['elfhome', 'grove'], grove: ['forest'], forge: ['dwarfhome'],
+  redplains: ['orchome', 'warcamp'], warcamp: ['redplains'],
+  riftland: ['rift', 'obsidian'], obsidian: ['riftland', 'throne'], throne: ['obsidian'],
 };
 
 /** from 에서 to 로 가려면 다음에 갈 지역 */
@@ -72,7 +86,7 @@ export const SHOP_TITLE: Record<string, string> = {
 /** 강화를 해 주는 대장장이 */
 export const SMITHS = new Set(['smith', 'dwarf_smith']);
 /** 치료·저장을 해 주는 NPC */
-export const HEALERS = new Set(['priest', 'elf_leader', 'dwarf_leader', 'orc_shaman', 'demon_leader']);
+export const HEALERS = new Set(['priest', 'elf_leader', 'dwarf_leader', 'orc_leader', 'orc_shaman', 'demon_leader']);
 
 /** 'leader' 같은 역할 이름을 이 캐릭터의 실제 NPC로 */
 export function resolveNpc(id: string, race: RaceId): string {

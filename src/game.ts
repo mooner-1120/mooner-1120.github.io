@@ -8,15 +8,15 @@ import {
 } from './entities';
 import { addToInv, countOf, derive, Derived, Hero, ItemInst, makeItem, randomDrop, removeCount, itemName } from './items';
 import { MAP_BUILDERS } from './maps';
-import { QUESTS, QuestDef } from './quests';
-import { GameMap, TS, Exit } from './tilemap';
+import { MEMORIES, MURALS, QUESTS, QuestDef, SELF_TALK, AMBIENT, BANTER } from './quests';
+import { GameMap, TS, Exit, MapObj } from './tilemap';
 import { updateEnemy } from './ai';
 import { renderGame } from './render';
 import { Coop } from './coop';
 import { RARITY } from './data';
 import { anim } from './assets';
 import { actionFor, settings as keySettings, shouldPrevent, ActionId } from './keys';
-import { HOME, MAP_NAME, NPC_MAP, NPC_NAME, nextHop, resolveNpc } from './homes';
+import { HOME, MAP_NAME, NPC_NAME, nextHop, npcMapFor, resolveNpc } from './homes';
 
 export interface UIHooks {
   toast(msg: string, color?: string): void;
@@ -28,6 +28,8 @@ export interface UIHooks {
   bossBar(e: Enemy | null): void;
   modalOpen(): boolean;
   showChapterClear(chapter: number): void;
+  showEnding(id: string): void;
+  showScene(title: string, lines: string[]): void;
   questUpdate(): void;
 }
 
@@ -288,16 +290,130 @@ export class Game {
     this.p.hp = Math.min(hero.hp, this.der.maxHp);
     this.p.mp = Math.min(hero.mp, this.der.maxMp);
     this.p.maxHp = this.der.maxHp;
+    this.migrate();
+    if (!this.hero.quests.length) { this.hero.flags.pro_beasts = true; this.startQuest('pro', true); }
     this.loadMap(hero.map, hero.x >= 0 ? [hero.x, hero.y] : 'start');
     this.running = true;
-    if (!this.hero.quests.length) this.startQuest('main1', true);
-    if (this.qs('main3')?.done && !this.qs('c2_1')) this.startQuest('c2_1');
     this.last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
   }
 
   stop(): void {
     this.running = false;
+  }
+
+  /** 예전 버전 세이브를 새 이야기 구조로 옮긴다 */
+  migrate(): void {
+    const h = this.hero;
+    const old = (id: string) => h.quests.find((q) => q.id === id);
+    if (!old('main1') && !old('main2') && !old('main3')) return;
+    const done = (id: string) => ({ id, stage: QUESTS[id].stages.length, count: 0, done: true });
+    const keep = h.quests.filter((q) => QUESTS[q.id] && !q.id.startsWith('main'));
+    const list = [done('pro')];
+    const m1 = old('main1'), m2 = old('main2'), m3 = old('main3');
+    h.flags.ch1_seen = true;
+    if (m3?.done) {
+      list.push(done('c1_1'), done('c1_2'), done('c1_3'), done('c1_4'));
+      Object.assign(h.flags, { garto_hasvel: true, pact_human: true, garto_alive: true, rift_open: true, vargon_dead: true, ch1_clear: true });
+    } else if (m2?.done) {
+      list.push(done('c1_1'), done('c1_2'), { id: 'c1_3', stage: h.flags.king_dead ? 1 : 0, count: 0, done: false });
+    } else if (m1?.done) {
+      list.push(done('c1_1'), { id: 'c1_2', stage: h.flags.crypt_cleared ? 2 : m2 && m2.stage > 0 ? 1 : 0, count: 0, done: false });
+    } else {
+      list.push({ id: 'c1_1', stage: m1 && m1.stage > 0 ? 2 : 1, count: m1?.count ?? 0, done: false });
+    }
+    h.quests = [...list, ...keep.filter((q) => !list.some((l) => l.id === q.id))];
+    if (m3?.done && !h.quests.some((q) => q.id === 'c2_1')) h.quests.push({ id: 'c2_1', stage: 0, count: 0, done: false });
+    if (h.flags.spirit_dead && h.quests.find((q) => q.id === 'c2_4')?.done) Object.assign(h.flags, { ch2_clear: true, pact_elf: true });
+    if (h.quests.find((q) => q.id === 'c2_4')?.done && !h.quests.some((q) => q.id === 'c3_1')) h.quests.push({ id: 'c3_1', stage: 0, count: 0, done: false });
+  }
+
+  // ── 말풍선 · 혼잣말 · 수군거림 · 파티 대화 ─────────────────────
+  bubbles: { who: string; text: string; t: number }[] = [];
+  selfTalkT = 0;
+  private selfSaid = new Set<string>();
+  private ambientCd = new Map<string, number>();
+  private banterCd = new Map<string, number>();
+  private bubbleT = 0;
+
+  say(who: string, text: string, t = 3.6): void {
+    this.bubbles = this.bubbles.filter((b) => b.who !== who);
+    this.bubbles.push({ who, text, t });
+    if (who === 'me' && this.coop.on) this.coop.sendSay(text);
+  }
+
+  updateTalk(dt: number): void {
+    for (const b of this.bubbles) b.t -= dt;
+    this.bubbles = this.bubbles.filter((b) => b.t > 0);
+    const race = this.hero.race;
+    if (this.selfTalkT > 0) {
+      this.selfTalkT -= dt;
+      if (this.selfTalkT <= 0 && !this.selfSaid.has(this.map.id)) {
+        const st = SELF_TALK[this.map.id];
+        const line = st?.[race] ?? st?.any;
+        if (line) { this.selfSaid.add(this.map.id); this.say('me', line); }
+      }
+    }
+    this.bubbleT -= dt;
+    if (this.bubbleT > 0) return;
+    this.bubbleT = 0.5;
+    // NPC 수군거림
+    for (const n of this.npcs) {
+      const list = AMBIENT[n.id];
+      if (!list || DIST(n, this.p) > 52) continue;
+      if ((this.ambientCd.get(n.id) ?? 0) > this.time) continue;
+      const g = list.find((e) => (!e.race || e.race.includes(race)) && (!e.when || this.hero.flags[e.when]) && (!e.unless || !this.hero.flags[e.unless]));
+      if (!g) continue;
+      this.ambientCd.set(n.id, this.time + 12 + Math.random() * 10);
+      this.say('npc:' + n.id, g.lines[(Math.random() * g.lines.length) | 0]);
+    }
+    // 파티 대화: 아이디가 작은 쪽이 먼저 말을 건다
+    if (this.coop.on && this.coop.t) {
+      for (const r of this.coop.othersHere()) {
+        if (Math.hypot(r.x - this.p.x, r.y - this.p.y) > 70 || this.coop.t.id > r.id) continue;
+        if ((this.banterCd.get(r.id) ?? 0) > this.time) continue;
+        const key = [race, r.race].sort().join('|');
+        const list = (BANTER[key] ?? []).map((b, i) => [b, i] as const).filter(([b]) => b[0] === race);
+        this.banterCd.set(r.id, this.time + 45 + Math.random() * 30);
+        if (!list.length) continue;
+        const [b, i] = list[(Math.random() * list.length) | 0];
+        this.say('me', b[1]);
+        this.coop.sendBanter(r.id, key, i);
+      }
+    }
+  }
+
+  /** 파티원이 말을 걸었다: 2초 뒤 대답 */
+  banterReply(key: string, i: number): void {
+    const b = BANTER[key]?.[i];
+    if (b) setTimeout(() => this.say('me', b[2]), 2000);
+  }
+
+  // ── 기억의 틈 · 벽화 (가까이 가면 보인다) ──────────────────────
+  updateLore(): void {
+    if (this.ui.modalOpen() || this.p.dead) return;
+    for (const o of this.map.objects) {
+      if (!o.tag || (o.req && !this.hero.flags[o.req])) continue;
+      const [kind, id] = o.tag.split(':');
+      if ((kind !== 'memory' && kind !== 'mural') || this.hero.flags['seen_' + id]) continue;
+      if (Math.hypot(o.x - this.p.x, o.y - this.p.y) > (kind === 'mural' ? 26 : 18)) continue;
+      this.hero.flags['seen_' + id] = true;
+      sfx('teleport');
+      if (kind === 'memory') {
+        const mem = MEMORIES[id];
+        this.ui.showScene(mem.title, mem.lines);
+        if (mem.flag) this.hero.flags[mem.flag] = true;
+        this.ui.toast(`노르하임의 기억 ${this.memoryCount()}/${Object.keys(MEMORIES).length}`, '#c37bff');
+        if (this.memoryCount() >= Object.keys(MEMORIES).length) this.setFlag('memories_all');
+      } else {
+        const mu = MURALS[id];
+        this.ui.showScene(mu.title, mu.lines);
+        if (Object.keys(MURALS).every((k) => this.hero.flags['seen_' + k])) this.setFlag('murals_seen');
+      }
+      this.syncWorld();
+      this.ui.questUpdate();
+      return;
+    }
   }
 
   recalc(): void {
@@ -330,11 +446,9 @@ export class Game {
     this.boss = null;
     this.arenaLocked = false;
     this.ui.bossBar(null);
-    for (const s of m.spawns) {
-      if (s.tag === 'boss' && this.bossDefeated(s.id)) continue;
-      this.enemies.push(new Enemy(ENEMIES[s.id], s.x, s.y, s));
-    }
-    this.npcs = m.npcs.map((n) => new NpcEnt(n.id, n.name, n.sprite, n.x, n.y, n.wander ?? 0));
+    this.npcs = [];
+    this.syncWorld();
+    this.selfTalkT = 1.2;
     const fallback = m.points.start ?? Object.values(m.points)[0];
     const pt = typeof spawn === 'string' ? m.points[spawn] ?? fallback : spawn;
     this.p.x = pt[0];
@@ -360,7 +474,8 @@ export class Game {
   }
 
   bossDefeated(id: string): boolean {
-    return (id === 'big_zombie' && !!this.hero.flags.crypt_cleared) || (id === 'bandit_king' && !!this.hero.flags.king_dead) || (id === 'big_demon' && !!this.hero.flags.vargon_dead) || (id === 'forest_lord' && !!this.hero.flags.spirit_dead);
+    const f = ENEMIES[id]?.flag;
+    return !!f && !!this.hero.flags[f];
   }
 
   travel(to: string, spawn: string): void {
@@ -437,6 +552,8 @@ export class Game {
     this.updateDrops(dt);
     if (!mirrored) this.updateRespawns(dt);
     this.checkExits(dt);
+    this.updateTalk(dt);
+    this.updateLore();
     this.updateCamera(dt);
     this.saveT += dt;
     if (this.saveT > 30) {
@@ -723,7 +840,7 @@ export class Game {
     this.boss = e;
     this.ui.bossBar(e);
     music('boss');
-    this.ui.big(e.d.name, e.d.id === 'bandit_king' ? '"왕관 조각은 내 거다!"' : e.d.id === 'big_zombie' ? '묘지 깊은 곳의 굶주린 자' : e.d.id === 'forest_lord' ? '"숲은... 썩어서... 다시 태어난다..."' : '"인간의 땅을 불태워라!"');
+    this.ui.big(e.d.name, e.d.intro ?? '');
   }
 
   /** 방장: 참가자가 때린 피해 적용 */
@@ -738,7 +855,7 @@ export class Game {
     const kb = (m.knock ?? 20) * (e.boss ? 0.15 : 1);
     if (kb > 0 && m.kx !== undefined && m.ky !== undefined) { e.kbx = m.kx * kb * 4; e.kby = m.ky * kb * 4; }
     if (m.status) this.applyStatus(e, m.status[0], m.status[1], m.status[2]);
-    if (e.hp <= 0) this.killEnemy(e);
+    this.checkDeath(e);
   }
 
   /** 다른 플레이어의 기술 연출 */
@@ -1283,7 +1400,7 @@ export class Game {
     for (let i = 0; i < (crit ? 10 : 5); i++)
       this.parts.push({ x: e.x, y: e.y - 8 * e.scale, z: 0, vx: Math.random() * 120 - 60, vy: Math.random() * 120 - 70, vz: 0, life: 0.25, max: 0.25, color: crit ? '#ffd23e' : '#fdf7ed', size: 1, kind: 'spark', grav: 200 });
     if (o.status) this.applyStatus(e, o.status[0], o.status[1], o.status[2]);
-    if (e.hp <= 0) this.killEnemy(e);
+    this.checkDeath(e);
   }
 
   applyStatus(a: Actor, s: StatusId, t: number, dps?: number): void {
@@ -1313,7 +1430,7 @@ export class Game {
             a.hp -= n;
             a.hpBarT = 2;
             this.text(a.x, a.y - 16 * a.scale - 4, String(n), k === 'poison' ? '#9be06a' : '#ff9a4a', false);
-            if (a.hp <= 0 && !a.dead) this.killEnemy(a);
+            if (!a.dead) this.checkDeath(a);
           } else if (a === this.p && !this.p.dead && this.p.invuln <= 0) {
             this.p.hp -= n;
             this.text(a.x, a.y - 30, '-' + n, k === 'poison' ? '#9be06a' : '#ff9a4a', false);
@@ -1401,6 +1518,11 @@ export class Game {
     this.loadMap(HOME[this.hero.race].map, 'statue');
   }
 
+  /** 체력이 0 이하(또는 항복·후퇴 지점)가 되면 처치 처리 */
+  checkDeath(e: Enemy): void {
+    if (!e.dead && e.hp <= e.maxHp * (e.d.retreatAt ?? 0)) this.killEnemy(e);
+  }
+
   /** fromNet: 방장이 알려 준 처치 (참가자 쪽) */
   killEnemy(e: Enemy, fromNet = false): void {
     if (e.dead) return;
@@ -1441,17 +1563,11 @@ export class Game {
     this.shake(8);
     music('victory');
     this.ui.bossBar(null);
-    const flag = e.d.id === 'big_zombie' ? 'crypt_cleared' : e.d.id === 'bandit_king' ? 'king_dead' : e.d.id === 'forest_lord' ? 'spirit_dead' : 'vargon_dead';
-    this.setFlag(flag);
     for (const o of this.enemies) if (!o.dead && o !== e && (o as any).summoned) this.killEnemy(o);
-    if (e.d.id === 'big_zombie') {
-      this.dropAt(e.x, e.y, { kind: 'mat', amount: 1, id: 'seal' });
-      this.ui.big('묘지기 처치!', '순찰대 인장을 손에 넣었다');
-    } else if (e.d.id === 'bandit_king') {
-      this.arenaLocked = false;
-      this.ui.big('도적왕 가르토 처치!', '왕관의 조각을 손에 넣었다');
-    } else if (e.d.id === 'forest_lord') this.ui.big('타락한 정령 실바레스 정화!', '숲의 심장이 다시 뛰기 시작한다');
-    else this.ui.big('선봉장 바르곤 처치!', '균열이 잠잠해진다');
+    if (e.d.id === 'bandit_king') this.arenaLocked = false;
+    const [t1, t2] = e.d.defeat ?? [`${e.d.name} 처치!`, ''];
+    this.ui.big(t1, t2);
+    if (e.d.flag) this.setFlag(e.d.flag);
     setTimeout(() => music(this.map.bgm), 4500);
   }
 
@@ -1551,6 +1667,7 @@ export class Game {
     this.respawns = this.respawns.filter((r) => r.t > 0);
     for (const r of ready) {
       if (Math.hypot(r.def.x - this.p.x, r.def.y - this.p.y) < 160) { r.t = 5; this.respawns.push(r); continue; }
+      if (r.def.hide && this.hero.flags[r.def.hide]) continue;
       this.enemies.push(new Enemy(ENEMIES[r.def.id], r.def.x, r.def.y, r.def));
     }
   }
@@ -1900,66 +2017,174 @@ export class Game {
   onKill(enemyId: string): void {
     for (const q of this.hero.quests) {
       if (q.done) continue;
-      const st = QUESTS[q.id].stages[q.stage];
+      const st = QUESTS[q.id]?.stages[q.stage];
       if (st?.k !== 'kill') continue;
       const ids = Array.isArray(st.enemy) ? st.enemy : [st.enemy];
       if (!ids.includes(enemyId)) continue;
       q.count++;
       if (q.count >= st.n) {
-        q.stage++;
         q.count = 0;
         sfx('buff');
-        this.ui.toast(`${QUESTS[q.id].name}: 목표 달성! 보고하러 가자`, '#ffd36a');
+        this.ui.toast(`${QUESTS[q.id].name}: 목표 달성!`, '#ffd36a');
+        this.advance(q);
       }
     }
     this.ui.questUpdate();
   }
 
+  /** 단계 하나 진행: 단계 플래그(퀘스트id_s번호)를 켜고, 끝이면 완료 */
+  advance(q: { id: string; stage: number; done: boolean }): boolean {
+    const def = QUESTS[q.id];
+    const sf = def.stageFlags?.[q.stage];
+    const autoFlag = `${q.id}_s${q.stage}`;
+    q.stage++;
+    this.hero.flags[autoFlag] = true;
+    if (sf) this.hero.flags[sf] = true;
+    if (q.stage >= def.stages.length) {
+      this.completeQuest(q.id);
+      return true;
+    }
+    this.syncWorld();
+    this.checkQuestFlags();
+    return false;
+  }
+
   setFlag(f: string): void {
+    if (this.hero.flags[f]) return;
     this.hero.flags[f] = true;
     this.checkQuestFlags();
+    this.syncWorld();
     this.ui.questUpdate();
   }
 
   checkQuestFlags(): void {
-    for (const q of this.hero.quests) {
-      if (q.done) continue;
-      const st = QUESTS[q.id].stages[q.stage];
-      if (st?.k === 'flag' && this.hero.flags[st.flag]) {
-        q.stage++;
-        this.ui.toast(`${QUESTS[q.id].name}: 목표 달성!`, '#ffd36a');
+    let again = true;
+    while (again) {
+      again = false;
+      for (const q of this.hero.quests) {
+        if (q.done) continue;
+        const st = QUESTS[q.id]?.stages[q.stage];
+        if (st?.k === 'flag' && this.hero.flags[st.flag]) {
+          this.ui.toast(`${QUESTS[q.id].name}: 목표 달성!`, '#ffd36a');
+          this.advance(q);
+          again = true;
+          break;
+        }
       }
     }
   }
 
-  /** NPC에게 말을 걸었을 때 진행되는 퀘스트 (대화·수집 보고) */
-  talkProgress(npc: string): { quest: QuestDef; lines: string[] } | null {
+  /** 조건 문자열 평가 (특수 조건 포함) */
+  reqMet(req?: string): boolean {
+    if (!req) return true;
+    const f = this.hero.flags;
+    if (req === 'MEM4') return this.memoryCount() >= 4;
+    if (req === 'TRUE_END') return this.trueEndChecks().every((c) => c.ok);
+    return !!f[req];
+  }
+
+  memoryCount(): number {
+    return Object.keys(MEMORIES).filter((k) => this.hero.flags['seen_' + k]).length;
+  }
+
+  /** 진 엔딩 조건 목록 (퀘스트 창에도 보여 준다) */
+  trueEndChecks(): { label: string; ok: boolean }[] {
+    const f = this.hero.flags;
+    return [
+      { label: '인간과의 맹약 (가르토의 진실)', ok: !!f.pact_human },
+      { label: '엘프와의 맹약 (실바레스 정화)', ok: !!f.pact_elf },
+      { label: '드워프와의 맹약 (단조 연대기 공개)', ok: !!f.pact_dwarf },
+      { label: '오크와의 맹약 (부족 통일)', ok: !!f.pact_orc },
+      { label: '마족과의 맹약 (에이라 구출)', ok: !!f.pact_demon },
+      { label: '가르토 생존', ok: !!f.garto_alive && !f.garto_dead },
+      { label: `노르하임의 기억 (${this.memoryCount()}/${Object.keys(MEMORIES).length})`, ok: this.memoryCount() >= Object.keys(MEMORIES).length },
+    ];
+  }
+
+  /** NPC에게 말을 걸었을 때 진행되는 퀘스트 (대화·수집 보고·선택) */
+  talkProgress(npc: string): { quest: QuestDef; lines: string[]; choice?: { qid: string; prompt: string; options: { label: string; ok: boolean; reqText?: string }[] } } | null {
+    const race = this.hero.race;
     for (const q of this.hero.quests) {
       if (q.done) continue;
       const def = QUESTS[q.id];
-      const st = def.stages[q.stage];
+      const st = def?.stages[q.stage];
       if (!st) continue;
-      if (st.k === 'talk' && resolveNpc(st.npc, this.hero.race) === npc) {
+      if (st.k === 'choice' && resolveNpc(st.npc, race) === npc) {
+        const intro = def.talksByRace?.[q.stage]?.[race] ?? def.talks?.[q.stage] ?? [];
+        return {
+          quest: def,
+          lines: intro,
+          choice: { qid: q.id, prompt: st.prompt, options: st.options.map((o) => ({ label: o.label, ok: this.reqMet(o.req), reqText: o.reqText })) },
+        };
+      }
+      if (st.k === 'talk' && resolveNpc(st.npc, race) === npc) {
         // 수집 퀘스트: 앞 단계가 수집이면 재료를 회수
         const prev = def.stages[q.stage - 1];
         if (prev && prev.k === 'collect') {
           if (countOf(this.hero, 'mat', prev.mat) < prev.n) { q.stage--; continue; }
           removeCount(this.hero, 'mat', prev.mat, prev.n);
         }
-        const said = def.talks?.[q.stage];
-        const sf = def.stageFlags?.[q.stage];
-        q.stage++;
-        if (sf) this.setFlag(sf);
-        if (q.stage >= def.stages.length) {
-          this.completeQuest(q.id);
-          return { quest: def, lines: def.doneByRace?.[this.hero.race] ?? def.done };
-        }
-        if (q.id === 'main2' && q.stage === 1)
-          return { quest: def, lines: ['촌장님이 보냈나? 마침 잘 왔다.', '사흘 전 순찰대가 북서쪽 지하 묘지를 조사하러 갔다가 돌아오지 않았다.', '묘지 깊은 곳에 거대한 구울이 산다는 소문이 있다. 놈을 처치하고 순찰대의 흔적을 찾아다오.', '(TIP: 언데드는 성속성과 화염에 약하다)'] };
+        const said = def.talksByRace?.[q.stage]?.[race] ?? def.talks?.[q.stage];
+        const finished = this.advance(q);
+        if (finished) return { quest: def, lines: def.doneByRace?.[race] ?? def.done };
         return { quest: def, lines: said ?? ['좋아, 계속 부탁하네.'] };
       }
     }
     return null;
+  }
+
+  /** 선택지 고르기 */
+  choose(qid: string, idx: number): string[] {
+    const q = this.qs(qid);
+    if (!q || q.done) return [];
+    const def = QUESTS[qid];
+    const st = def.stages[q.stage];
+    if (st?.k !== 'choice') return [];
+    const o = st.options[idx];
+    if (!o || !this.reqMet(o.req)) return [];
+    for (const f of o.flags ?? []) this.hero.flags[f] = true;
+    const finished = this.advance(q);
+    this.syncWorld();
+    const lines = [...o.lines];
+    if (finished && def.done.length) lines.push(...(def.doneByRace?.[this.hero.race] ?? def.done));
+    return lines;
+  }
+
+  /** 이야기 진행에 맞춰 지금 지역의 NPC · 몬스터 · 물체를 맞춘다 */
+  syncWorld(): void {
+    if (!this.map) return;
+    const f = this.hero.flags;
+    const want = (d: { req?: string; hide?: string[] | string }) => {
+      if (d.req && !f[d.req]) return false;
+      const hide = Array.isArray(d.hide) ? d.hide : d.hide ? [d.hide] : [];
+      return !hide.some((h) => f[h]);
+    };
+    // NPC
+    const keep = this.npcs.filter((n) => {
+      const def = this.map.npcs.find((d) => d.id === n.id && Math.abs(d.x - n.homeX) < 1 && Math.abs(d.y - n.homeY) < 1);
+      return def ? want(def) : true;
+    });
+    for (const d of this.map.npcs) {
+      if (!want(d) || keep.some((n) => n.id === d.id && Math.abs(d.x - n.homeX) < 1 && Math.abs(d.y - n.homeY) < 1)) continue;
+      keep.push(new NpcEnt(d.id, d.name, d.sprite, d.x, d.y, d.wander ?? 0));
+      this.teleportFx(d.x, d.y);
+    }
+    this.npcs = keep;
+    // 몬스터 (방장이 움직이는 몬스터를 받는 중이면 건드리지 않는다)
+    if (!this.coop.mirrored) {
+      for (const s of this.map.spawns) {
+        const active = this.enemies.some((e) => e.spawn === s && !e.dead) || this.respawns.some((r) => r.def === s);
+        if (want(s) && !active && !(s as any).spawned && !(s.tag === 'boss' && this.bossDefeated(s.id))) {
+          (s as any).spawned = true;
+          this.enemies.push(new Enemy(ENEMIES[s.id], s.x, s.y, s));
+          this.teleportFx(s.x, s.y);
+        }
+        if (!want(s)) {
+          for (const e of this.enemies) if (e.spawn === s && !e.dead) { e.dead = true; e.deathT = 0.5; }
+          this.respawns = this.respawns.filter((r) => r.def !== s);
+        }
+      }
+    }
   }
 
   checkCollect(): void {
@@ -1978,6 +2203,9 @@ export class Game {
     this.hero.gold += r.gold;
     if (r.soul) this.hero.soul += r.soul;
     for (const [it, n] of r.items ?? []) addToInv(this.hero, { t: 'use', id: it, n });
+    for (const [it, n] of r.mats ?? []) { addToInv(this.hero, { t: 'mat', id: it, n }); this.ui.toast(`획득: ${MATERIALS[it]?.name ?? it}`, '#ffd36a'); }
+    for (const it of r.removeMats ?? []) removeCount(this.hero, 'mat', it, countOf(this.hero, 'mat', it));
+    for (const f of r.flags ?? []) this.hero.flags[f] = true;
     if (r.equip) {
       let item: ItemInst;
       if (r.equip === 'auto') {
@@ -1993,10 +2221,13 @@ export class Game {
     sfx('levelup');
     this.ui.big('퀘스트 완료!', def.name);
     this.gainXp(r.xp);
-    if (r.flag) this.setFlag(r.flag);
+    if (r.flag) this.hero.flags[r.flag] = true;
+    this.checkQuestFlags();
+    this.syncWorld();
     if (def.next) setTimeout(() => this.startQuest(def.next!), 600);
-    if (id === 'main3') setTimeout(() => this.ui.showChapterClear(1), 1800);
-    if (id === 'c2_4') setTimeout(() => this.ui.showChapterClear(2), 1800);
+    if (def.chapterClear) setTimeout(() => this.ui.showChapterClear(def.chapterClear!), 1800);
+    const ending = ['ending_1', 'ending_2', 'ending_3'].find((k) => this.hero.flags[k]);
+    if (id === 'c5_5' && ending) setTimeout(() => this.ui.showEnding(ending), 1200);
     this.ui.hudDirty();
     this.ui.questUpdate();
   }
@@ -2032,6 +2263,8 @@ export class Game {
       wolf: 'field', boar: 'field', spider: 'field', goblin: 'field', bandit: 'field', bandit_archer: 'field', masked_orc: 'field',
       skelet: 'crypt', zombie: 'crypt', tiny_zombie: 'crypt', necromancer: 'crypt',
       blight_wolf: 'forest', swampy: 'forest', muddy: 'forest', slug: 'forest', pumpkin_dude: 'forest', forest_spirit: 'forest', dryad: 'forest',
+      ash_beast: HOME[this.hero.race].map, magma_slime: 'forge', stone_golem: 'forge', forge_spirit: 'forge',
+      warband: 'redplains', war_shaman: 'redplains', war_boar: 'redplains', arena_champion: 'redplains',
     };
     const MAT_ENEMY: Record<string, string> = { hide: 'boar', silk: 'spider', bone: 'skelet', spirit_stone: 'forest_spirit' };
     let map = '';
@@ -2044,9 +2277,9 @@ export class Game {
       for (const s of this.map.spawns) if (ids.includes(s.id)) { const d = Math.hypot(s.x - this.p.x, s.y - this.p.y); if (d < bd) { bd = d; best = { x: s.x, y: s.y }; } }
       return best;
     };
-    if (st.k === 'talk') {
+    if (st.k === 'talk' || st.k === 'choice') {
       const who = resolveNpc(st.npc, this.hero.race);
-      map = NPC_MAP[who] ?? 'village';
+      map = npcMapFor(who, this.hero.flags);
       label = NPC_NAME[who] ?? '';
       point = () => { const n = this.npcs.find((n) => n.id === who); return n ? { x: n.x, y: n.y - 14 } : null; };
     } else if (st.k === 'kill' || st.k === 'collect') {
@@ -2059,10 +2292,34 @@ export class Game {
       point = nearestEnemy(ids);
     } else if (st.k === 'flag') {
       const boss: Record<string, [string, string, string]> = {
-        crypt_cleared: ['crypt', 'big_zombie', '묘지기'], king_dead: ['fort', 'bandit_king', '도적왕'], vargon_dead: ['rift', 'big_demon', '바르곤'], spirit_dead: ['grove', 'forest_lord', '실바레스'],
+        crypt_cleared: ['crypt', 'big_zombie', '묘지기 모스'], king_dead: ['fort', 'bandit_king', '도적왕 가르토'], vargon_dead: ['rift', 'big_demon', '바르곤'], spirit_dead: ['grove', 'forest_lord', '실바레스'],
+        golem_dead: ['forge', 'forge_golem', '용광로 골렘'], karkush_dead: ['warcamp', 'karkush', '카르쿠쉬'], vargon_resolved: ['riftland', 'vargon2', '바르곤'],
+        mordain_dead: ['throne', 'ash_king', '잿빛 왕'], belkar_dead: ['throne', 'belkar', '마왕 벨카르'],
       };
+      // 벽화 · 기억은 아직 안 본 것 중 가장 가까운 곳
+      const seek = (prefix: string, ids: string[], mapOf: (id: string) => string, name: string) => {
+        const left = ids.filter((id) => !this.hero.flags['seen_' + id]);
+        if (!left.length) return null;
+        const here = left.filter((id) => mapOf(id) === this.map.id);
+        if (here.length) {
+          let best: MapObj | null = null, bd = 1e9;
+          for (const o of this.map.objects) if (o.tag && here.some((id) => o.tag === prefix + id)) { const d = Math.hypot(o.x - this.p.x, o.y - this.p.y); if (d < bd) { bd = d; best = o; } }
+          return best ? { map: this.map.id, x: best.x, y: best.y - 12, label: name } : null;
+        }
+        return { map: mapOf(left[0]), x: 0, y: 0, label: name };
+      };
+      if (st.flag === 'murals_seen' || st.flag === 'memories_all') {
+        const t = st.flag === 'murals_seen'
+          ? seek('mural:', Object.keys(MURALS), () => 'obsidian', '노르하임의 벽화')
+          : seek('memory:', Object.keys(MEMORIES), (id) => MEMORIES[id].map, '기억의 틈');
+        if (!t) return null;
+        map = t.map;
+        label = t.label;
+        point = () => ({ x: t.x, y: t.y });
+      }
       const b = boss[st.flag];
-      if (!b) return null;
+      if (!b && !map) return null;
+      if (b) {
       [map, , label] = b;
       point = () => {
         const e = this.enemies.find((e) => e.d.id === b[1] && !e.dead);
@@ -2070,10 +2327,11 @@ export class Game {
         const p = this.map.points.boss;
         return p ? { x: p[0], y: p[1] } : null;
       };
+      }
     }
     if (map === this.map.id) {
       const pt = point();
-      return pt ? { ...pt, label, exit: false, npc: st.k === 'talk' } : null;
+      return pt ? { ...pt, label, exit: false, npc: st.k === 'talk' || st.k === 'choice' } : null;
     }
     // 다른 지역: 지역 연결도를 따라 다음으로 거쳐 갈 지역의 출구를 가리킨다
     const hop = nextHop(this.map.id, map) ?? 'field';
@@ -2086,6 +2344,7 @@ export class Game {
     for (const q of this.hero.quests) {
       if (q.done) continue;
       const st = QUESTS[q.id].stages[q.stage];
+      if (st?.k === 'choice' && resolveNpc(st.npc, this.hero.race) === npc) return '?';
       if (st?.k === 'talk' && resolveNpc(st.npc, this.hero.race) === npc) {
         const prev = QUESTS[q.id].stages[q.stage - 1];
         if (prev?.k === 'collect' && countOf(this.hero, 'mat', prev.mat) < prev.n) continue;

@@ -99,13 +99,7 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
       e.state = 'recover';
       e.stT = 0.6;
       e.flash = 0.4;
-      const msg: Record<string, string[]> = {
-        big_zombie: ['', '', '묘지기가 썩은 숨을 내뿜는다! (2페이즈)', '묘지기가 광폭해졌다! (3페이즈)'],
-        bandit_king: ['', '', '"얘들아, 나와라!" 부하를 부른다! (2페이즈)', '도적왕이 분노했다! (3페이즈)'],
-        big_demon: ['', '', '하늘에서 불꽃이 쏟아진다! (2페이즈)', '바르곤이 마계의 힘을 해방한다! (3페이즈)'],
-        forest_lord: ['', '', '실바레스가 숲정령을 부르고 가시가 쏟아진다! (2페이즈)', '썩은 심장이 고동친다! (3페이즈)'],
-      };
-      g.ui.toast(msg[e.d.id]?.[want] ?? '보스가 강해졌다!', '#ff7a5a');
+      g.ui.toast(e.d.phaseMsg?.[want - 2] ?? '보스가 강해졌다!', '#ff7a5a');
       if (want === 3) e.enraged = true;
       e.summonT = 1.5;
     }
@@ -113,9 +107,9 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
     if (e.phase >= 2) {
       e.summonT -= dt;
       if (e.summonT <= 0) {
-        const kind = e.d.id === 'big_zombie' ? 'tiny_zombie' : e.d.id === 'bandit_king' ? (Math.random() < 0.5 ? 'bandit' : 'bandit_archer') : e.d.id === 'forest_lord' ? 'forest_spirit' : 'imp';
+        const kind = e.d.id === 'bandit_king' ? (Math.random() < 0.5 ? 'bandit' : 'bandit_archer') : e.d.summons ?? 'imp';
         const alive = g.enemies.filter((o) => !o.dead && (o as E).summoned).length;
-        if (alive < 4 && (e.d.id !== 'big_demon' || e.phase >= 3)) {
+        if (alive < 4 && (!e.d.meteor || e.d.id === 'forest_lord' || e.phase >= 3)) {
           for (let i = 0; i < 2; i++) summon(g, e, kind);
         }
         e.summonT = e.d.id === 'bandit_king' ? 13 : 10;
@@ -255,7 +249,7 @@ function chooseAttack(g: Game, e: E, d: number): Atk | null {
   const p = g.aiTarget(e);
   const opts: Atk[] = [...e.d.attacks];
   if (e.d.id === 'bandit_king' && e.phase >= 2) opts.push('axes', 'axes');
-  if ((e.d.id === 'big_demon' || e.d.id === 'forest_lord') && e.phase >= 2) opts.push('meteor');
+  if (e.d.meteor && e.phase >= 2) opts.push('meteor');
   const los = g.map.los(e.x, e.y - 6, p.x, p.y - 6);
   const ok = opts.filter((a) => {
     const [lo, hi] = attackRange(e, a);
@@ -326,8 +320,10 @@ function beginAttack(g: Game, e: E, a: Atk): void {
     case 'meteor':
       for (let i = 0; i < 6; i++) {
         const aa = Math.random() * Math.PI * 2, rr = i === 0 ? 0 : 20 + Math.random() * 60;
-        const thorn = e.d.id === 'forest_lord';
-        const h: Hazard = { x: p.x + Math.cos(aa) * rr, y: p.y + Math.sin(aa) * rr * 0.8, shape: { k: 'circle', r: 22 }, t: 0.9 + i * 0.15, total: 0.9 + i * 0.15, team: 'enemy', dmg: atk * 1.2, element: thorn ? 'poison' : 'fire', owner: e, fx: thorn ? 'thorn' : 'meteor', knock: 30, status: thorn ? ['poison', 3, atk * 0.25] : ['burn', 2, atk * 0.2] };
+        const kindM = e.d.meteor ?? 'fire';
+        const thorn = kindM === 'thorn';
+        const ash = kindM === 'ash';
+        const h: Hazard = { x: p.x + Math.cos(aa) * rr, y: p.y + Math.sin(aa) * rr * 0.8, shape: { k: 'circle', r: 22 }, t: 0.9 + i * 0.15, total: 0.9 + i * 0.15, team: 'enemy', dmg: atk * 1.2, element: thorn ? 'poison' : ash ? 'dark' : 'fire', owner: e, fx: thorn ? 'thorn' : ash ? 'shock' : 'meteor', knock: 30, status: thorn ? ['poison', 3, atk * 0.25] : ash ? ['slow', 1.5] : ['burn', 2, atk * 0.2] };
         g.hazards.push(h);
       }
       e.stT = 0.6;

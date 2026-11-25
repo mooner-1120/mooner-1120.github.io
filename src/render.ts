@@ -35,7 +35,13 @@ export function renderGame(g: Game): void {
   // 오브젝트
   for (const o of m.objects) {
     if (o.layer === 'ground' || !inView(o.x, o.y, 80)) continue;
+    if (o.req && !g.hero.flags[o.req]) continue;
     if (o.tag === 'portal') { list.push({ y: o.y - 20, draw: () => drawPortal(w, o.x, o.y, g.time) }); continue; }
+    if (o.tag?.startsWith('memory:')) {
+      if (g.hero.flags['seen_' + o.tag.slice(7)]) continue;
+      list.push({ y: o.y - 20, draw: () => drawMemory(w, o.x, o.y, g.time) });
+      continue;
+    }
     list.push({ y: o.y, draw: () => drawFrame(w, m.objFrame(o, g.time), o.x, o.y, { flip: o.flip }) });
   }
   // 상자
@@ -204,6 +210,16 @@ export function renderGame(g: Game): void {
     ctx.textAlign = guide.align;
     outlineText(ctx, guide.text, x, y, `${11 * fsU}px Galmuri11`, '#ffe48a', fsU);
     ctx.textAlign = 'center';
+  }
+  // 말풍선
+  for (const b of g.bubbles) {
+    let x = 0, y = 0;
+    if (b.who === 'me') { x = g.p.x; y = g.p.y - 32; }
+    else if (b.who.startsWith('npc:')) { const n = g.npcs.find((n) => n.id === b.who.slice(4)); if (!n) continue; const h = frame(anim(n.sprite, 'idle')[0])?.[3] ?? 24; x = n.x; y = n.y - h - 6; }
+    else if (b.who.startsWith('p:')) { const r = g.coop.players.get(b.who.slice(2)); if (!r || r.map !== m.id) continue; x = r.x; y = r.y - 38; }
+    if (!inView(x, y)) continue;
+    const [sx2, sy2] = toS(x, y);
+    drawBubble(ctx, b.text, sx2, sy2, fsU, Math.min(1, b.t * 3), b.who.startsWith('npc:'));
   }
   // 떠오르는 숫자
   for (const t of g.texts) {
@@ -658,4 +674,57 @@ function drawOther(g: Game, r: import('./coop').Remote): void {
   w.fillRect(x, y, bw, 2);
   w.fillStyle = '#5ee06a';
   w.fillRect(x, y, Math.max(0, Math.round((bw * r.hp) / Math.max(1, r.maxHp))), 2);
+}
+
+/** 기억의 틈: 보라빛 작은 균열 */
+function drawMemory(w: CanvasRenderingContext2D, x: number, y: number, t: number): void {
+  const cx = Math.round(x), cy = Math.round(y - 12);
+  const cols = ['#21141b', '#5f2d56', '#9a6fd0', '#cae6f5'];
+  for (let i = 0; i < cols.length; i++) {
+    w.fillStyle = cols[i];
+    const r = 10 - i * 2.4 + Math.sin(t * 2.5 + i) * 0.6;
+    w.beginPath();
+    w.ellipse(cx, cy, Math.max(1, r * 0.45), Math.max(1, r), 0, 0, Math.PI * 2);
+    w.fill();
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = t * 1.6 + (i * Math.PI) / 3;
+    w.fillStyle = i % 2 ? '#fdf7ed' : '#c37bff';
+    w.fillRect(Math.round(cx + Math.cos(a) * 6), Math.round(cy + Math.sin(a) * 10 - ((t * 8 + i * 3) % 6)), 1, 1);
+  }
+}
+
+/** 말풍선 (화면 해상도) */
+function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, k: number, alpha: number, npc: boolean): void {
+  const fs = 11 * k;
+  ctx.font = `${fs}px Galmuri11`;
+  // 글자 수로 줄바꿈 (한 줄 최대 16자)
+  const lines: string[] = [];
+  let cur = '';
+  for (const word of text.split(' ')) {
+    if ((cur + ' ' + word).trim().length > 16 && cur) { lines.push(cur); cur = word; }
+    else cur = (cur + ' ' + word).trim();
+  }
+  if (cur) lines.push(cur);
+  const pad = 4 * k, lh = fs + 2 * k;
+  const wMax = Math.max(...lines.map((l) => ctx.measureText(l).width));
+  const bw = Math.ceil(wMax + pad * 2), bh = Math.ceil(lines.length * lh + pad * 2 - 2 * k);
+  const bx = Math.round(x - bw / 2), by = Math.round(y - bh - 6 * k);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#1a1214';
+  ctx.fillRect(bx - k, by - k, bw + 2 * k, bh + 2 * k);
+  ctx.fillStyle = npc ? '#f4ead6' : '#fdf7ed';
+  ctx.fillRect(bx, by, bw, bh);
+  // 꼬리
+  ctx.fillStyle = '#1a1214';
+  ctx.fillRect(Math.round(x - 2 * k), by + bh, 5 * k, 2 * k);
+  ctx.fillRect(Math.round(x - k), by + bh + 2 * k, 3 * k, 2 * k);
+  ctx.fillStyle = npc ? '#f4ead6' : '#fdf7ed';
+  ctx.fillRect(Math.round(x - k), by + bh, 3 * k, k);
+  ctx.fillStyle = '#2a1a1e';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, x, by + pad + i * lh - k));
+  ctx.textBaseline = 'alphabetic';
+  ctx.globalAlpha = 1;
 }

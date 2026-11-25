@@ -19,6 +19,8 @@ export interface MapObj {
   layer?: 'ground'; // 바닥에 깔리는 것(그림자 없이 먼저 그림)
   light?: number; // 어두운 맵에서 빛 반경
   tag?: string;
+  /** 이 플래그가 켜져 있어야 보인다 */
+  req?: string;
 }
 
 export interface Exit {
@@ -36,6 +38,8 @@ export interface SpawnDef {
   y: number;
   respawn?: number; // 초
   tag?: string;
+  req?: string;
+  hide?: string;
 }
 
 export interface NpcDef {
@@ -45,6 +49,10 @@ export interface NpcDef {
   x: number;
   y: number;
   wander?: number;
+  /** 이 플래그가 켜져 있어야 나타난다 */
+  req?: string;
+  /** 이 플래그 중 하나라도 켜지면 사라진다 */
+  hide?: string[];
 }
 
 export interface Chest {

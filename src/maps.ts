@@ -41,6 +41,44 @@ function border(m: GameMap, r: () => number, thick = 2, kinds = [0, 1, 2]) {
     }
 }
 
+
+/** 기억의 틈 (1장 이후 보인다) */
+function memory(m: GameMap, id: string, tx: number, ty: number) {
+  for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) if (m.inb(x, y)) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(Math.abs(o.x / TS - tx - 0.5) < 1.6 && Math.abs(o.y / TS - ty - 1) < 1.6));
+  m.addObj({ sprite: 'portal', x: px(tx), y: foot(ty), tag: 'memory:' + id, req: 'ch1_clear', light: 50 });
+}
+/** 프롤로그: 성소 주변의 잿빛 짐승 세 마리 */
+function homeBeasts(m: GameMap, cx: number, cy: number) {
+  for (const [dx, dy] of [[-4, 3], [4, 3], [0, 6]]) m.spawns.push({ id: 'ash_beast', x: px(cx + dx), y: px(cy + dy), req: 'pro_beasts', hide: 'pro_s0' });
+}
+/** 동굴 파기: 벽으로 채운 맵에 통로와 방을 판다 */
+function carvePath(m: GameMap, pts: [number, number][], w = 3, t: T = T.Floor) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+    const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 2;
+    for (let k = 0; k <= n; k++) m.fillRect(Math.round(ax + ((bx - ax) * k) / n) - (w >> 1), Math.round(ay + ((by - ay) * k) / n) - (w >> 1), w, w, t);
+  }
+}
+function carveRoom(m: GameMap, cx: number, cy: number, rx: number, ry: number, t: T = T.Floor) {
+  for (let y = cy - ry; y <= cy + ry; y++) for (let x = cx - rx; x <= cx + rx; x++) if (Math.hypot((x - cx) / rx, (y - cy) / ry) < 1) m.set(x, y, t);
+}
+/** 시작 지점에서 걸어갈 수 있는 곳에만 적을 놓는다 */
+function reachableZone(m: GameMap, r: () => number, from: [number, number], respawn = 50) {
+  return (id: string, cx: number, cy: number, n: number, spread = 4) => {
+    for (let i = 0; i < n; i++)
+      for (let k = 0; k < 25; k++) {
+        const x = cx + (r() * 2 - 1) * spread, y = cy + (r() * 2 - 1) * spread;
+        if (m.blocked(Math.floor(x), Math.floor(y))) continue;
+        const path = m.findPath(px(from[0]), px(from[1]), x * TS + 8, y * TS + 8, 30000);
+        const last = path?.[path.length - 1];
+        if (!last || Math.hypot(last[0] - (x * TS + 8), last[1] - (y * TS + 8)) > 20) continue;
+        m.spawns.push({ id, x: x * TS + 8, y: y * TS + 8, respawn });
+        break;
+      }
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 export function buildVillage(): GameMap {
   const m = new GameMap('village', '솔라리온 변경 마을 · 하스벨', 46, 34);
@@ -92,9 +130,9 @@ export function buildVillage(): GameMap {
   m.points.statue = [px(23), px(19)];
   m.exits.push({ x: 45, y: 15, w: 1, h: 5, to: 'field', spawn: 'west', label: '솔라리온 평원' });
   m.npcs.push(
-    { id: 'elder', name: '촌장 오스윈', sprite: 'wizzard_m', x: px(25), y: px(15) },
+    { id: 'elder', name: '촌장 에드릭', sprite: 'wizzard_m', x: px(25), y: px(15) },
     { id: 'captain', name: '경비대장 레아', sprite: 'knight_f', x: px(40), y: px(16) },
-    { id: 'smith', name: '대장장이 브론', sprite: 'dwarf_m', x: px(28), y: px(13) },
+    { id: 'smith', name: '대장장이 하겐', sprite: 'dwarf_m', x: px(28), y: px(13) },
     { id: 'merchant', name: '행상인 시스', sprite: 'lizard_f', x: px(27), y: px(21) },
     { id: 'alchemist', name: '연금술사 리엘', sprite: 'elf_f', x: px(17), y: px(23) },
     { id: 'priest', name: '신관 마렌', sprite: 'wizzard_f', x: px(22), y: px(6) },
@@ -102,7 +140,10 @@ export function buildVillage(): GameMap {
     { id: 'villager1', name: '마을 주민', sprite: 'villager_m', x: px(13), y: px(17), wander: 40 },
     { id: 'villager2', name: '마을 주민', sprite: 'villager_f', x: px(31), y: px(23), wander: 40 },
     { id: 'villager3', name: '꼬마 피핀', sprite: 'angel', x: px(20), y: px(16), wander: 30 },
+    { id: 'mordain', name: '섭정 재상 모르데인', sprite: 'mordain', x: px(21), y: px(17), req: 'vargon_dead', hide: ['ch4_clear'] },
+    { id: 'garto', name: '가르토', sprite: 'bandit_king', x: px(16), y: px(20), req: 'garto_hasvel', hide: ['garto_dead'] },
   );
+  homeBeasts(m, 23, 19);
   return m;
 }
 
@@ -198,7 +239,8 @@ export function buildField(): GameMap {
   m.addObj({ sprite: 'o_crystal', x: px(61), y: foot(53), solid: { w: 1, h: 1 } });
   m.addObj({ sprite: 'o_crystal', x: px(67), y: foot(57), solid: { w: 1, h: 1 }, flip: true });
   m.addObj({ sprite: 'portal', x: px(64), y: foot(55), tag: 'portal', light: 60 });
-  m.exits.push({ x: 63, y: 54, w: 3, h: 2, to: 'rift', spawn: 'start', label: '균열의 틈', locked: 'ch1_clear', lockMsg: '붉은 균열이 일렁이지만 아직은 들어갈 수 없다. (1장 클리어 후 개방)' });
+  m.exits.push({ x: 63, y: 54, w: 3, h: 2, to: 'rift', spawn: 'start', label: '균열의 틈', locked: 'rift_open', lockMsg: '붉은 균열이 일렁인다. 아직은 닫혀 있다.' });
+  memory(m, 'mem_fest', 14, 37);
   obj(m, 'o_sign', 6, 31, 0, 0, { tag: 'sign_field' });
   m.points.west = [px(2), px(33)];
   m.points.elf = [px(40), px(3)];
@@ -310,6 +352,7 @@ export function buildCrypt(): GameMap {
   m.spawns.push({ id: 'big_zombie', x: px(b.x + b.w / 2), y: px(b.y + 3), tag: 'boss' });
   for (let k = 0; k < 4; k++) m.addObj({ sprite: k % 2 ? 'o_grave_1' : 'o_grave_0', x: px(b.x + 2 + k * 4), y: foot(b.y + b.h - 2), solid: { w: 1, h: 1 } });
   m.chests.push({ x: b.x + b.w - 3, y: b.y + 1, id: 'crypt_boss', tier: 7 });
+  { const rm = mid[Math.min(1, mid.length - 1)]; memory(m, 'mem_night', rm.x + (rm.w >> 1), rm.y + (rm.h >> 1)); }
   return m;
 }
 
@@ -344,6 +387,7 @@ export function buildFort(): GameMap {
   add('bandit', 22, 20); add('goblin', 6, 14); add('goblin', 16, 30); add('masked_orc', 27, 20);
   add('bandit_archer', 28, 13); add('bandit', 26, 26);
   m.spawns.push({ id: 'bandit_king', x: px(43), y: px(14), tag: 'boss' });
+  m.npcs.push({ id: 'garto', name: '가르토', sprite: 'bandit_king', x: px(43), y: px(14), req: 'king_dead', hide: ['garto_hasvel'] });
   m.chests.push({ x: 29, y: 32, id: 'fort1', tier: 7 });
   return m;
 }
@@ -381,6 +425,12 @@ export function buildRift(): GameMap {
     }
   }
   m.spawns.push({ id: 'big_demon', x: px(50), y: px(24), tag: 'boss' });
+  // 북쪽: 균열의 땅 (5장)
+  m.fillRect(28, 0, 4, 18, T.Ash);
+  m.objects = m.objects.filter((o) => !(o.x > 27 * TS && o.x < 33 * TS && o.y < 19 * TS));
+  for (let y = 0; y < 18; y++) for (let x = 28; x < 32; x++) m.solid[m.idx(x, y)] = 0;
+  m.points.north = [px(30), px(4)];
+  m.exits.push({ x: 28, y: 0, w: 4, h: 1, to: 'riftland', spawn: 'south', label: '균열의 땅', locked: 'ch4_clear', lockMsg: '균열 너머로 붉은 하늘이 보인다. 아직 갈 때가 아니다.' });
   return m;
 }
 
@@ -426,11 +476,13 @@ export function buildElfHome(): GameMap {
   m.points.north = [px(20), px(3)];
   m.exits.push({ x: 19, y: 0, w: 3, h: 1, to: 'forest', spawn: 'south', label: '실바넬의 썩은 숲', locked: 'ch1_clear', lockMsg: '숲지기: "북쪽 숲은 썩어 들어가 위험해요. 도적왕 일이 끝나면 장로님께서 부르실 거예요." (1장 클리어 후 개방)' });
   m.npcs.push(
-    { id: 'elf_leader', name: '숲의 장로 탈리온', sprite: 'elf_m', x: px(22), y: px(13) },
+    { id: 'elf_leader', name: '여왕 엘라리엔', sprite: 'elf_queen', x: px(22), y: px(13) },
+    { id: 'orwen', name: '현자 오르웬', sprite: 'orwen', x: px(24), y: px(9), req: 'orwen_shown' },
     { id: 'elf_merchant', name: '약초상 미렐', sprite: 'elf_f', x: px(15), y: px(21) },
     { id: 'elf_guard', name: '숲지기 아엘린', sprite: 'elf_f', x: px(22), y: px(27) },
     { id: 'elf_villager', name: '엘프 주민', sprite: 'elf_m', x: px(25), y: px(16), wander: 40 },
   );
+  homeBeasts(m, 20, 16);
   return m;
 }
 
@@ -456,8 +508,12 @@ export function buildDwarfHome(): GameMap {
   for (const x of [6, 12, 18, 23, 29, 34]) torch(m, x, 3, x % 2 === 0);
   campfire(m, 26, 17);
   homeCommon(m, { x: 19, y: 29, w: 3, h: 1 }, [20, 26], [20, 19], '솔라리온 평원', 'dwarf');
+  m.fillRect(19, 0, 3, 5, T.Floor);
+  m.points.north = [px(20), px(5)];
+  m.exits.push({ x: 19, y: 0, w: 3, h: 1, to: 'forge', spawn: 'south', label: '태초의 용광로', locked: 'forge_open', lockMsg: '육중한 용광로 문이 잠겨 있다. 옛 대장장이 가문의 열쇠가 필요하다.' });
+  homeBeasts(m, 20, 21);
   m.npcs.push(
-    { id: 'dwarf_leader', name: '광산 족장 브룸가르', sprite: 'dwarf_m', x: px(22), y: px(16) },
+    { id: 'dwarf_leader', name: '길드장 브론 딥해머', sprite: 'dwarf_guild', x: px(22), y: px(16) },
     { id: 'dwarf_smith', name: '대장장이 헬가', sprite: 'dwarf_f', x: px(29), y: px(12) },
     { id: 'dwarf_miner', name: '광부 토르비', sprite: 'dwarf_m', x: px(12), y: px(18), wander: 40 },
   );
@@ -488,9 +544,17 @@ export function buildOrcHome(): GameMap {
   for (const [x, y] of [[5, 13], [24, 9], [36, 12], [16, 22]]) m.addObj({ sprite: 'skull', x: px(x), y: foot(y) - 4, layer: 'ground' });
   for (const [x, y] of [[26, 6], [27, 6], [5, 24]]) obj(m, 'o_barrel', x, y, 1, 1);
   homeCommon(m, { x: 19, y: 0, w: 3, h: 1 }, [20, 3], [20, 12], '솔라리온 평원', 'orc');
+  m.fillRect(19, 28, 3, 4, T.Dirt);
+  for (let y = 28; y < 32; y++) for (let x = 18; x < 23; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(o.x > 17 * TS && o.x < 23 * TS && o.y > 28 * TS));
+  m.points.south = [px(20), px(27)];
+  m.exits.push({ x: 19, y: 31, w: 3, h: 1, to: 'redplains', spawn: 'north', label: '붉은 평원 전장', locked: 'ch3_clear', lockMsg: '전쟁 중인 평원이다. 족장 그롬마가 아직 길을 열지 않았다.' });
+  homeBeasts(m, 20, 14);
   m.npcs.push(
-    { id: 'orc_leader', name: '족장 우르가', sprite: 'orc_m', x: px(22), y: px(10) },
-    { id: 'orc_shaman', name: '주술사 모그', sprite: 'orc_shaman', x: px(16), y: px(15) },
+    { id: 'orc_leader', name: '족장 그롬마', sprite: 'orc_shaman', x: px(22), y: px(10) },
+    { id: 'orc_shaman', name: '주술사 모그', sprite: 'orc_m', x: px(16), y: px(15) },
+    { id: 'vesper_visit', name: '베스페라', sprite: 'demon_f', x: px(24), y: px(14), req: 'karkush_dead', hide: ['ch4_clear'] },
+    { id: 'royal_captain', name: '왕국군 대장', sprite: 'royal_guard', x: px(18), y: px(6), req: 'c4_4_s0', hide: ['ch4_clear'] },
     { id: 'orc_arena', name: '투기장지기 크락', sprite: 'masked_orc', x: px(30), y: px(19) },
     { id: 'orc_villager', name: '오크 전사', sprite: 'orc_f', x: px(12), y: px(20), wander: 40 },
   );
@@ -523,10 +587,13 @@ export function buildDemonHome(): GameMap {
   for (const [x, y] of [[8, 16], [28, 14]]) m.addObj({ sprite: 'o_crystal', x: px(x), y: foot(y), solid: { w: 1, h: 1 }, light: 50 });
   homeCommon(m, { x: 16, y: 0, w: 3, h: 1 }, [17, 3], [18, 14], '솔라리온 평원', 'demon');
   m.npcs.push(
-    { id: 'demon_leader', name: '계약자 모르가스', sprite: 'chort', x: px(20), y: px(12) },
+    { id: 'demon_leader', name: '잿불 결사의 베스페라', sprite: 'demon_f', x: px(20), y: px(12) },
+    { id: 'sera', name: '세라', sprite: 'sera', x: px(16), y: px(18), wander: 24, hide: ['sera_taken'] },
+    { id: 'eira', name: '에이라', sprite: 'eira', x: px(23), y: px(15), req: 'eira_saved' },
     { id: 'imp_merchant', name: '임프 상인 키키', sprite: 'imp', x: px(12), y: px(15) },
-    { id: 'demon_exile', name: '망명자 리스', sprite: 'demon_f', x: px(22), y: px(18), wander: 30 },
+    { id: 'demon_exile', name: '망명자 리스', sprite: 'demon_m', x: px(22), y: px(18), wander: 30 },
   );
+  homeBeasts(m, 18, 16);
   return m;
 }
 
@@ -598,6 +665,7 @@ export function buildForest(): GameMap {
   zone('forest_spirit', 12, 14, 3); zone('slug', 58, 40, 2); zone('swampy', 58, 36, 2);
   zone('forest_spirit', 52, 12, 2); zone('pumpkin_dude', 50, 14, 2);
   m.spawns.push({ id: 'dryad', x: px(58), y: px(40), respawn: 120 });
+  memory(m, 'mem_priest', 21, 36);
   m.chests.push({ x: 12, y: 10, id: 'forest1', tier: 10 }, { x: 61, y: 42, id: 'forest2', tier: 11 });
   for (const c of m.chests) m.solid[m.idx(c.x, c.y)] = 0;
   return m;
@@ -629,8 +697,203 @@ export function buildGrove(): GameMap {
   return m;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 3장: 태초의 용광로
+export function buildForge(): GameMap {
+  const W = 56, H = 46;
+  const m = new GameMap('forge', '태초의 용광로', W, H, T.Wall);
+  m.dark = true;
+  m.ambient = 'rgba(30,10,4,0.62)';
+  m.bgm = 'dungeon';
+  m.wallStyle = 'dungeon';
+  const r = rng(707);
+  carvePath(m, [[28, 45], [28, 38], [16, 32], [12, 22], [22, 16], [36, 18], [44, 26], [40, 34], [28, 38]], 4);
+  carvePath(m, [[22, 16], [28, 10]], 4);
+  for (const [x, y, rx, ry] of [[28, 39, 5, 3], [15, 31, 5, 4], [12, 22, 5, 4], [36, 18, 5, 4], [44, 27, 5, 4], [40, 34, 4, 3]] as const) carveRoom(m, x, y, rx, ry);
+  carveRoom(m, 28, 8, 10, 6);
+  // 용암 웅덩이 (길은 막지 않는다)
+  for (const [x, y] of [[20, 27], [34, 27], [8, 18], [48, 20], [28, 5]] as const) for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 2; xx <= x + 2; xx++) if (m.get(xx, yy) === T.Floor && Math.hypot(xx - x, (yy - y) * 1.6) < 2.4) m.set(xx, yy, T.Lava);
+  for (const [x, y] of [[24, 37], [32, 37], [12, 28], [8, 22], [38, 15], [46, 25], [20, 4], [36, 4]] as const) torch(m, x, y, true);
+  for (const [x, y] of [[18, 30], [41, 33], [14, 20]] as const) obj(m, r() < 0.5 ? 'o_barrel' : 'crate', x, y, 1, 1);
+  for (const x of [20, 36]) m.addObj({ sprite: 'column', x: px(x), y: foot(10), solid: { w: 1, h: 1 } });
+  m.points.south = [px(28), px(42)];
+  m.points.start = m.points.south;
+  m.points.boss = [px(28), px(8)];
+  m.exits.push({ x: 27, y: 45, w: 3, h: 1, to: 'dwarfhome', spawn: 'north', label: '아이언후드 광산 마을' });
+  const zone = reachableZone(m, r, [28, 42]);
+  zone('magma_slime', 28, 38, 2); zone('stone_golem', 15, 31, 2); zone('forge_spirit', 12, 22, 2);
+  zone('magma_slime', 36, 18, 2); zone('stone_golem', 44, 27, 2); zone('forge_spirit', 40, 34, 2); zone('magma_slime', 22, 16, 1);
+  m.spawns.push({ id: 'forge_golem', x: px(28), y: px(8), tag: 'boss' });
+  memory(m, 'mem_child', 44, 29);
+  m.chests.push({ x: 10, y: 23, id: 'forge1', tier: 15 });
+  return m;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 4장: 붉은 평원 전장 → 카르쿠쉬의 전쟁 진영
+export function buildRedPlains(): GameMap {
+  const W = 76, H = 56;
+  const m = new GameMap('redplains', '붉은 평원 전장', W, H, T.Dirt);
+  m.bgm = 'fort';
+  const r = rng(808);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = Math.sin(x * 0.17) * Math.cos(y * 0.21) + Math.sin((x + y) * 0.07);
+    if (n > 0.9) m.set(x, y, T.Grass);
+    else if (n < -1.1) m.set(x, y, T.Ash);
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) m.set(x, y, T.Grass);
+  border(m, r, 2, [4, 4, 1]);
+  carvePath(m, [[38, 0], [38, 10], [30, 22], [38, 34], [56, 30], [75, 28]], 3, T.Dirt);
+  for (let y = 0; y < 3; y++) for (let x = 36; x < 41; x++) m.solid[m.idx(x, y)] = 0;
+  for (let y = 26; y < 31; y++) for (let x = W - 3; x < W; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !((o.x / TS > 35 && o.x / TS < 41 && o.y / TS < 4) || (o.x / TS > W - 4 && o.y / TS > 25 && o.y / TS < 32)));
+  // 투기장 (가운데 남쪽)
+  const ax = 22, ay = 40;
+  for (let x = ax - 7; x <= ax + 7; x++) for (const y of [ay - 5, ay + 5]) if (x !== ax && x !== ax + 1) obj(m, 'o_fence_h', x, y, 1, 1);
+  for (let y = ay - 4; y <= ay + 4; y++) for (const x of [ax - 7, ax + 7]) m.addObj({ sprite: 'o_fence_v', x: px(x), y: foot(y), solid: { w: 1, h: 1 } });
+  carvePath(m, [[30, 22], [ax, ay - 6]], 2, T.Dirt);
+  for (let i = 0; i < 40; i++) {
+    const x = 4 + ((r() * (W - 8)) | 0), y = 4 + ((r() * (H - 8)) | 0);
+    if (m.get(x, y) !== T.Dirt && !m.solid[m.idx(x, y)] && Math.hypot(x - ax, y - ay) > 9) obj(m, r() < 0.4 ? 'o_rock_1' : r() < 0.6 ? 'o_tree_dead' : 'o_bush_0', x, y, 1, 1);
+  }
+  for (const [x, y] of [[50, 14], [58, 40], [12, 18]] as const) { obj(m, 'o_tent_red', x, y, 2, 1); campfire(m, x + 3, y + 1); }
+  for (const [x, y] of [[44, 24], [16, 30], [60, 22]] as const) m.addObj({ sprite: 'skull', x: px(x), y: foot(y) - 4, layer: 'ground' });
+  m.points.north = [px(38), px(3)];
+  m.points.start = m.points.north;
+  m.points.east = [px(W - 4), px(28)];
+  m.points.arena = [px(ax), px(ay)];
+  m.exits.push({ x: 37, y: 0, w: 3, h: 1, to: 'orchome', spawn: 'south', label: '붉은 평원 야영지' });
+  m.exits.push({ x: W - 1, y: 26, w: 1, h: 5, to: 'warcamp', spawn: 'west', label: '카르쿠쉬의 전쟁 진영', locked: 'arena_won', lockMsg: '카르쿠쉬의 진영 입구를 전사들이 막고 있다. 투기장에서 부족들의 인정을 받아야 한다.' });
+  const zone = reachableZone(m, r, [38, 3]);
+  zone('warband', 34, 16, 3); zone('war_shaman', 46, 26, 2); zone('war_boar', 14, 14, 2); zone('warband', 56, 32, 3);
+  zone('war_shaman', 62, 16, 2); zone('war_boar', 48, 44, 2); zone('warband', 12, 26, 2);
+  m.spawns.push({ id: 'arena_champion', x: px(ax), y: px(ay) });
+  memory(m, 'mem_siblings', 64, 46);
+  m.chests.push({ x: 6, y: 48, id: 'red1', tier: 18 });
+  return m;
+}
+
+export function buildWarCamp(): GameMap {
+  const W = 34, H = 28;
+  const m = new GameMap('warcamp', '카르쿠쉬의 전쟁 진영', W, H, T.Dirt);
+  m.bgm = 'boss';
+  const r = rng(909);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (Math.hypot((x - 18) / 15, (y - 14) / 11) > 1) m.set(x, y, T.Grass);
+  border(m, r, 2, [4, 4]);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (m.get(x, y) === T.Grass && Math.hypot((x - 18) / 15, (y - 14) / 11) > 1.08 && !m.solid[m.idx(x, y)]) m.solid[m.idx(x, y)] = 1;
+  carvePath(m, [[0, 14], [6, 14]], 3, T.Dirt);
+  for (let y = 12; y < 17; y++) for (let x = 0; x < 7; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(o.x / TS < 7 && o.y / TS > 11 && o.y / TS < 18));
+  for (const [x, y] of [[12, 6], [24, 6], [10, 22], [26, 22]] as const) campfire(m, x, y);
+  obj(m, 'o_tent_red', 28, 13, 2, 1);
+  m.points.west = [px(3), px(14)];
+  m.points.start = m.points.west;
+  m.points.boss = [px(20), px(14)];
+  m.exits.push({ x: 0, y: 12, w: 1, h: 5, to: 'redplains', spawn: 'east', label: '붉은 평원 전장' });
+  m.spawns.push({ id: 'karkush', x: px(22), y: px(14), tag: 'boss' });
+  return m;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 5장: 균열의 땅 → 흑요 요새 → 왕좌의 방
+export function buildRiftLand(): GameMap {
+  const W = 70, H = 62;
+  const m = new GameMap('riftland', '균열의 땅', W, H, T.Ash);
+  m.bgm = 'boss';
+  m.dark = true;
+  m.ambient = 'rgba(46,8,12,0.42)';
+  const r = rng(1010);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = Math.sin(x * 0.21 + 2) * Math.cos(y * 0.19) + Math.sin((x - y) * 0.11);
+    if (n > 1.1) m.set(x, y, T.Lava);
+    if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) m.set(x, y, T.Lava);
+  }
+  carvePath(m, [[35, 61], [35, 50], [24, 40], [30, 28], [44, 22], [35, 12], [35, 0]], 4, T.Ash);
+  carvePath(m, [[24, 40], [10, 50], [8, 56]], 3, T.Ash);
+  carveRoom(m, 35, 8, 7, 5, T.Ash);
+  for (let i = 0; i < 50; i++) {
+    const x = 3 + ((r() * (W - 6)) | 0), y = 3 + ((r() * (H - 6)) | 0);
+    if (m.get(x, y) === T.Ash && Math.abs(x - 35) > 3 && Math.hypot(x - 35, y - 8) > 8) obj(m, r() < 0.5 ? 'o_crystal' : r() < 0.6 ? 'o_tree_dead' : 'o_rock_1', x, y, 1, 1);
+  }
+  // 흑요 요새 성문 (북쪽)
+  obj(m, 'o_fort', 35, 2, 0, 0);
+  m.points.south = [px(35), px(57)];
+  m.points.start = m.points.south;
+  m.points.north = [px(35), px(6)];
+  m.points.gate = [px(35), px(10)];
+  m.exits.push({ x: 34, y: 61, w: 3, h: 1, to: 'rift', spawn: 'north', label: '균열의 틈' });
+  m.exits.push({ x: 33, y: 0, w: 5, h: 2, to: 'obsidian', spawn: 'south', label: '흑요 요새', locked: 'vargon_resolved', lockMsg: '관문을 바르곤이 지키고 있다.' });
+  m.npcs.push({ id: 'vargon', name: '선봉대장 바르곤', sprite: 'big_demon', x: px(35), y: px(9), req: 'rift_march', hide: ['vargon_fight', 'vargon_resolved'] });
+  m.spawns.push({ id: 'vargon2', x: px(35), y: px(9), tag: 'boss', req: 'vargon_fight', hide: 'vargon_resolved' });
+  const zone = reachableZone(m, r, [35, 57], 60);
+  zone('legion_imp', 30, 46, 2); zone('legion_blade', 24, 38, 2); zone('rift_spirit', 30, 28, 2);
+  zone('legion_blade', 44, 22, 2); zone('legion_imp', 40, 16, 2); zone('rift_spirit', 12, 50, 2);
+  memory(m, 'mem_eira', 8, 56);
+  return m;
+}
+
+export function buildObsidian(): GameMap {
+  const W = 50, H = 42;
+  const m = new GameMap('obsidian', '흑요 요새', W, H, T.Wall);
+  m.dark = true;
+  m.ambient = 'rgba(24,6,14,0.7)';
+  m.bgm = 'dungeon';
+  m.wallStyle = 'dungeon';
+  const r = rng(1111);
+  m.fillRect(20, 30, 10, 11, T.Floor); // 입구 홀
+  m.fillRect(6, 18, 38, 10, T.Floor); // 벽화 회랑
+  m.fillRect(22, 27, 6, 4, T.Floor); // 홀 ↔ 회랑
+  m.fillRect(22, 4, 6, 15, T.Floor); // 왕좌로 가는 계단
+  m.fillRect(36, 30, 8, 8, T.Floor); // 감옥
+  m.fillRect(30, 33, 6, 3, T.Floor);
+  m.fillRect(6, 28, 6, 8, T.Floor); // 서쪽 방
+  for (const x of [10, 18, 32, 40]) for (const y of [20, 26]) m.addObj({ sprite: 'column', x: px(x), y: foot(y), solid: { w: 1, h: 1 } });
+  // 벽화 세 점 (회랑 북쪽 벽)
+  const murals: [string, number][] = [['mural1', 10], ['mural2', 25], ['mural3', 40]];
+  for (const [id, x] of murals) {
+    m.addObj({ sprite: 'wall_banner_red', x: px(x), y: foot(17), layer: 'ground', tag: 'mural:' + id, light: 40 });
+  }
+  for (const x of [8, 16, 34, 42]) torch(m, x, 17, x > 25);
+  torch(m, 22, 29, true); torch(m, 27, 29, true);
+  m.addObj({ sprite: 'o_grave_1', x: px(41), y: foot(31), solid: { w: 1, h: 1 } });
+  m.points.south = [px(25), px(38)];
+  m.points.start = m.points.south;
+  m.points.north = [px(25), px(6)];
+  m.exits.push({ x: 24, y: 40, w: 3, h: 1, to: 'riftland', spawn: 'north', label: '균열의 땅' });
+  m.exits.push({ x: 23, y: 3, w: 4, h: 1, to: 'throne', spawn: 'south', label: '왕좌의 방', locked: 'murals_seen', lockMsg: '계단 위 문에 노르하임 문양이 빛난다. 벽화들을 먼저 살펴봐야 할 것 같다.' });
+  m.npcs.push({ id: 'eira', name: '에이라', sprite: 'eira', x: px(40), y: px(34), req: 'eira_known', hide: ['eira_saved'] });
+  const zone = reachableZone(m, r, [25, 38], 70);
+  zone('royal_guard', 25, 33, 2, 2); zone('legion_blade', 12, 22, 2); zone('royal_guard', 34, 22, 2); zone('legion_imp', 9, 31, 1, 2); zone('royal_guard', 25, 10, 2, 2);
+  m.chests.push({ x: 7, y: 34, id: 'obs1', tier: 23 });
+  return m;
+}
+
+export function buildThrone(): GameMap {
+  const W = 32, H = 28;
+  const m = new GameMap('throne', '왕좌의 방', W, H, T.Wall);
+  m.dark = true;
+  m.ambient = 'rgba(40,8,8,0.45)';
+  m.bgm = 'boss';
+  m.wallStyle = 'dungeon';
+  m.fillRect(4, 4, 24, 20, T.Cobble);
+  m.fillRect(14, 24, 4, 4, T.Floor);
+  for (const x of [7, 24]) for (const y of [8, 14, 20]) m.addObj({ sprite: 'column', x: px(x), y: foot(y), solid: { w: 1, h: 1 } });
+  for (const x of [8, 15, 23]) m.addObj({ sprite: 'wall_banner_red', x: px(x), y: foot(3), layer: 'ground' });
+  for (const x of [5, 26]) torch(m, x, 3, true);
+  m.addObj({ sprite: 'o_statue', x: px(16), y: foot(5), solid: { w: 1, h: 1 } });
+  m.points.south = [px(16), px(24)];
+  m.points.start = m.points.south;
+  m.points.boss = [px(16), px(11)];
+  m.exits.push({ x: 14, y: 27, w: 4, h: 1, to: 'obsidian', spawn: 'north', label: '흑요 요새' });
+  m.spawns.push({ id: 'ash_king', x: px(16), y: px(11), tag: 'boss' });
+  m.spawns.push({ id: 'belkar', x: px(16), y: px(10), tag: 'boss', req: 'mordain_dead' });
+  m.npcs.push({ id: 'sera', name: '세라', sprite: 'sera', x: px(18), y: px(9), req: 'belkar_dead' });
+  return m;
+}
+
 export const MAP_BUILDERS: Record<string, () => GameMap> = {
   village: buildVillage, field: buildField, crypt: buildCrypt, fort: buildFort, rift: buildRift,
   elfhome: buildElfHome, dwarfhome: buildDwarfHome, orchome: buildOrcHome, demonhome: buildDemonHome,
   forest: buildForest, grove: buildGrove,
+  forge: buildForge, redplains: buildRedPlains, warcamp: buildWarCamp, riftland: buildRiftLand, obsidian: buildObsidian, throne: buildThrone,
 };

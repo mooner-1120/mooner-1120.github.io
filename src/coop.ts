@@ -293,6 +293,14 @@ export class Coop {
         g.killEnemy(e, true);
         return;
       }
+      case 'say':
+        if (msg.id !== this.t?.id) this.g.say('p:' + msg.id, String(msg.text).slice(0, 80));
+        if (this.role === 'host') this.broadcast(msg, from);
+        return;
+      case 'banter':
+        if (msg.to === this.t?.id) this.g.banterReply(msg.key, msg.i);
+        else if (this.role === 'host') this.t?.send(msg.to, msg);
+        return;
       case 'dmg':
         // 방장 쪽 몬스터(돌진 등)가 나를 쳤다
         if (msg.map === g.map.id) g.hurtPlayer(msg.dmg, { from: { x: msg.x, y: msg.y }, knock: msg.knock ?? 60 });
@@ -370,6 +378,14 @@ export class Coop {
   sendFx(k: string, x: number, y: number, a = 0, r = 20): void {
     if (!this.t) return;
     this.send({ t: 'vfx', map: this.g.map.id, k, x: Math.round(x), y: Math.round(y), a: +a.toFixed(2), r });
+  }
+  sendSay(text: string): void {
+    if (!this.t) return;
+    this.send({ t: 'say', id: this.t.id, text });
+  }
+  sendBanter(to: string, key: string, i: number): void {
+    if (!this.t) return;
+    this.send({ t: 'banter', to, key, i });
   }
   chat(text: string): void {
     text = text.trim().slice(0, 120);

@@ -200,6 +200,23 @@ export const BASE_ITEMS: BaseItem[] = [
   { id: 'mace', name: '메이스', slot: 'weapon', icon: 'weapon_mace', cls: ['cleric'], atk: 5, matk: 4, tier: 1, price: 20 },
   { id: 'hammer', name: '성전 망치', slot: 'weapon', icon: 'weapon_hammer', cls: ['cleric'], atk: 10, matk: 8, tier: 4, price: 140 },
   { id: 'big_hammer', name: '심판자의 대망치', slot: 'weapon', icon: 'weapon_big_hammer', cls: ['cleric'], atk: 18, matk: 14, tier: 9, price: 450 },
+  { id: 'golden_sword', name: '황금 기사검', slot: 'weapon', icon: 'weapon_golden_sword', cls: ['warrior'], atk: 36, tier: 14, price: 1100 },
+  { id: 'lavish_sword', name: '맹약의 대검', slot: 'weapon', icon: 'weapon_lavish_sword', cls: ['warrior'], atk: 50, tier: 19, price: 2200 },
+  { id: 'anime_sword', name: '잿불의 검', slot: 'weapon', icon: 'weapon_anime_sword', cls: ['warrior'], atk: 64, tier: 23, price: 3600 },
+  { id: 'saw_sword', name: '톱날 쌍검', slot: 'weapon', icon: 'weapon_saw_sword', cls: ['rogue'], atk: 31, tier: 14, price: 1100 },
+  { id: 'cleaver', name: '노르하임의 식칼', slot: 'weapon', icon: 'weapon_cleaver', cls: ['rogue'], atk: 44, tier: 19, price: 2200 },
+  { id: 'shadow_katana', name: '그림자 왕의 칼', slot: 'weapon', icon: 'weapon_katana', cls: ['rogue'], atk: 57, tier: 23, price: 3600 },
+  { id: 'ember_staff', name: '잿불 지팡이', slot: 'weapon', icon: 'weapon_red_magic_staff', cls: ['mage'], atk: 6, matk: 34, tier: 14, price: 1100 },
+  { id: 'spirit_staff', name: '정령의 지팡이', slot: 'weapon', icon: 'weapon_green_magic_staff', cls: ['mage'], atk: 8, matk: 47, tier: 19, price: 2200 },
+  { id: 'firstflame_staff', name: '첫 불꽃의 지팡이', slot: 'weapon', icon: 'weapon_red_magic_staff', cls: ['mage'], atk: 10, matk: 61, tier: 23, price: 3600 },
+  { id: 'war_bow', name: '전쟁 장궁', slot: 'weapon', icon: 'weapon_bow', cls: ['archer'], atk: 30, tier: 14, price: 1100 },
+  { id: 'silvanel_bow', name: '실바넬 성궁', slot: 'weapon', icon: 'weapon_bow_2', cls: ['archer'], atk: 42, tier: 19, price: 2200 },
+  { id: 'dawn_bow', name: '새벽의 활', slot: 'weapon', icon: 'weapon_bow_2', cls: ['archer'], atk: 55, tier: 23, price: 3600 },
+  { id: 'baton', name: '정화의 철퇴', slot: 'weapon', icon: 'weapon_baton_with_spikes', cls: ['cleric'], atk: 24, matk: 20, tier: 14, price: 1100 },
+  { id: 'oath_hammer', name: '서약의 대망치', slot: 'weapon', icon: 'weapon_big_hammer', cls: ['cleric'], atk: 33, matk: 28, tier: 19, price: 2200 },
+  { id: 'sun_mace', name: '태양의 철퇴', slot: 'weapon', icon: 'weapon_mace', cls: ['cleric'], atk: 42, matk: 36, tier: 23, price: 3600 },
+  { id: 'war_axe', name: '부족장의 도끼', slot: 'weapon', icon: 'weapon_waraxe', cls: ['warrior'], atk: 43, tier: 17, price: 1700 },
+  { id: 'double_axe', name: '혈맹의 쌍날도끼', slot: 'weapon', icon: 'weapon_double_axe', cls: ['warrior'], atk: 58, tier: 21, price: 3000 },
   // 보조
   { id: 'wood_shield', name: '나무 방패', slot: 'offhand', icon: 'i_shield_red', cls: ['warrior', 'cleric'], def: 3, tier: 1, price: 18 },
   { id: 'iron_shield', name: '철 방패', slot: 'offhand', icon: 'i_shield_iron', cls: ['warrior', 'cleric'], def: 7, hp: 20, tier: 5, price: 150 },
@@ -208,6 +225,10 @@ export const BASE_ITEMS: BaseItem[] = [
   { id: 'tome', name: '견습 마도서', slot: 'offhand', icon: 'i_book_blue', cls: ['mage'], matk: 3, mp: 10, tier: 1, price: 18 },
   { id: 'fire_tome', name: '화염 마도서', slot: 'offhand', icon: 'i_book_red', cls: ['mage'], matk: 8, mp: 25, tier: 5, price: 150 },
   { id: 'quiver', name: '화살통', slot: 'offhand', icon: 'i_quiver', cls: ['archer'], atk: 2, tier: 1, price: 18 },
+  { id: 'tower_shield', name: '드워프 탑방패', slot: 'offhand', icon: 'i_shield_iron', cls: ['warrior', 'cleric'], def: 14, hp: 60, tier: 15, price: 1200 },
+  { id: 'ember_tome', name: '잿불 마도서', slot: 'offhand', icon: 'i_book_red', cls: ['mage'], matk: 16, mp: 60, tier: 15, price: 1200 },
+  { id: 'night_blade', name: '밤의 보조검', slot: 'offhand', icon: 'weapon_duel_sword', cls: ['rogue'], atk: 12, tier: 15, price: 1200 },
+  { id: 'elf_quiver', name: '정령 화살통', slot: 'offhand', icon: 'i_quiver', cls: ['archer'], atk: 10, tier: 15, price: 1200 },
   { id: 'holy_book', name: '성서', slot: 'offhand', icon: 'i_holy_book', cls: ['cleric'], matk: 3, mp: 10, tier: 1, price: 18 },
   // 방어구
   { id: 'cloth_hood', name: '천 두건', slot: 'head', icon: 'i_helm_cloth', def: 1, mp: 8, tier: 1, price: 15 },
@@ -218,9 +239,16 @@ export const BASE_ITEMS: BaseItem[] = [
   { id: 'leather_armor', name: '가죽 갑옷', slot: 'body', icon: 'i_armor_leather', def: 4, tier: 1, price: 20 },
   { id: 'chain_mail', name: '사슬 갑옷', slot: 'body', icon: 'i_armor_iron', def: 9, tier: 4, price: 150 },
   { id: 'gold_plate', name: '황금 판금갑옷', slot: 'body', icon: 'i_armor_gold', def: 16, hp: 50, tier: 9, price: 500 },
+  { id: 'forge_helm', name: '단조 투구', slot: 'head', icon: 'i_helm_iron', def: 14, hp: 70, tier: 15, price: 1000 },
+  { id: 'ash_crown', name: '잿빛 관', slot: 'head', icon: 'i_helm_gold', def: 20, hp: 110, mp: 40, tier: 22, price: 2600 },
+  { id: 'forge_plate', name: '단조 판금갑옷', slot: 'body', icon: 'i_armor_iron', def: 26, hp: 120, tier: 15, price: 1500 },
+  { id: 'oath_plate', name: '맹약의 갑옷', slot: 'body', icon: 'i_armor_gold', def: 36, hp: 180, tier: 21, price: 3200 },
+  { id: 'spirit_robe', name: '정령 로브', slot: 'body', icon: 'i_armor_cloth', def: 18, mp: 90, tier: 16, price: 1500 },
   { id: 'cloth_gloves', name: '천 장갑', slot: 'hands', icon: 'i_gloves_cloth', def: 1, tier: 1, price: 12 },
   { id: 'leather_gloves', name: '가죽 장갑', slot: 'hands', icon: 'i_gloves_leather', def: 2, tier: 2, price: 30 },
   { id: 'iron_gauntlet', name: '철 건틀릿', slot: 'hands', icon: 'i_gloves_iron', def: 4, tier: 5, price: 120 },
+  { id: 'forge_gauntlet', name: '용광로 건틀릿', slot: 'hands', icon: 'i_gloves_gold', def: 10, tier: 15, price: 900 },
+  { id: 'war_boots', name: '전쟁 장화', slot: 'feet', icon: 'i_boots_gold', def: 12, tier: 17, price: 1000 },
   { id: 'leather_boots', name: '가죽 장화', slot: 'feet', icon: 'i_boots_leather', def: 2, tier: 1, price: 12 },
   { id: 'cloth_shoes', name: '천 신발', slot: 'feet', icon: 'i_boots_cloth', def: 1, tier: 1, price: 12 },
   { id: 'iron_boots', name: '철 장화', slot: 'feet', icon: 'i_boots_iron', def: 4, tier: 5, price: 120 },
@@ -232,6 +260,8 @@ export const BASE_ITEMS: BaseItem[] = [
   { id: 'amethyst_ring', name: '자수정 반지', slot: 'ring', icon: 'i_ring_purple', tier: 7, price: 200 },
   { id: 'ruby_amulet', name: '루비 목걸이', slot: 'amulet', icon: 'i_amulet_red', tier: 3, price: 120 },
   { id: 'sapphire_amulet', name: '사파이어 목걸이', slot: 'amulet', icon: 'i_amulet_blue', tier: 3, price: 120 },
+  { id: 'blood_ring', name: '혈맹의 반지', slot: 'ring', icon: 'i_ring_red', tier: 17, price: 1400 },
+  { id: 'ember_amulet', name: '잿불 목걸이', slot: 'amulet', icon: 'i_amulet_red', tier: 20, price: 2400 },
   { id: 'royal_amulet', name: '왕가의 목걸이', slot: 'amulet', icon: 'i_amulet_purple', tier: 8, price: 300 },
 ];
 export const BASE_BY_ID: Record<string, BaseItem> = Object.fromEntries(BASE_ITEMS.map((b) => [b.id, b]));
@@ -273,6 +303,14 @@ export const MATERIALS: Record<string, { name: string; icon: string; price: numb
   bone: { name: '오래된 뼈', icon: 'skull', price: 5 },
   seal: { name: '순찰대 인장', icon: 'i_amulet_blue', price: 0 },
   spirit_stone: { name: '정령석', icon: 'fx_orb_green_0', price: 0 },
+  oath_gem: { name: '서약석 (호박)', icon: 'fx_orb_holy_0', price: 0 },
+  life_gem: { name: '생명석 (녹옥)', icon: 'fx_orb_green_1', price: 0 },
+  forge_gem: { name: '단조석 (흑철)', icon: 'fx_orb_dark_0', price: 0 },
+  blood_gem: { name: '혈맹석 (홍옥)', icon: 'fx_orb_fire_1', price: 0 },
+  will_scrap: { name: '왕의 유언 조각', icon: 'i_scroll', price: 0 },
+  chronicle: { name: '단조 연대기', icon: 'i_book_red', price: 0 },
+  royal_seal: { name: '왕실 인장', icon: 'i_amulet_purple', price: 0 },
+  ember_mark: { name: '잿불의 표식', icon: 'fx_orb_fire_0', price: 0 },
 };
 
 // ── 적 ───────────────────────────────────────────────────────────────
@@ -301,7 +339,15 @@ export interface EnemyData {
   drops?: [string, number][]; // [재료 id, 확률]
   boss?: boolean;
   elite?: boolean;
-  summons?: string; // 주기적으로 부르는 부하
+  summons?: string; // 주기적으로 부르는 부하 (보스는 2페이즈부터)
+  /** 보스: 쓰러뜨리면 켜지는 이야기 플래그 */
+  flag?: string;
+  /** 이 체력 비율 아래로 떨어지면 죽지 않고 물러난다 (항복·후퇴) */
+  retreatAt?: number;
+  intro?: string;
+  defeat?: [string, string];
+  phaseMsg?: [string, string];
+  meteor?: 'fire' | 'thorn' | 'ash';
   scale?: number;
 }
 
@@ -317,8 +363,8 @@ export const ENEMIES: Record<string, EnemyData> = {
   zombie: { id: 'zombie', name: '구울', sprite: 'zombie', level: 5, hp: 140, atk: 18, def: 3, speed: 26, xp: 36, gold: [4, 12], kind: 'undead', attacks: ['bite'], range: 18, windup: 0.6, cd: 1.6, aggro: 80, radius: 6, weak: ['holy', 'fire'], resist: ['poison'], drops: [['bone', 0.4]] },
   tiny_zombie: { id: 'tiny_zombie', name: '썩은 망자', sprite: 'tiny_zombie', level: 4, hp: 50, atk: 11, def: 1, speed: 52, xp: 20, gold: [2, 6], kind: 'undead', attacks: ['bite'], range: 14, windup: 0.3, cd: 1.0, aggro: 90, radius: 5, weak: ['holy', 'fire'] },
   necromancer: { id: 'necromancer', name: '리치', sprite: 'necromancer', level: 6, hp: 150, atk: 20, def: 4, speed: 34, xp: 70, gold: [20, 40], kind: 'undead', attacks: ['cast'], range: 110, windup: 0.8, cd: 2.2, aggro: 130, radius: 6, keepDist: 70, weak: ['holy'], elite: true, summons: 'skelet' },
-  big_zombie: { id: 'big_zombie', name: '묘지기 거대 구울', sprite: 'big_zombie', level: 7, hp: 900, atk: 26, def: 6, speed: 30, xp: 300, gold: [120, 180], kind: 'undead', attacks: ['slam', 'bite', 'spit'], range: 28, windup: 0.8, cd: 1.6, aggro: 200, radius: 11, weak: ['holy', 'fire'], boss: true },
-  bandit_king: { id: 'bandit_king', name: '도적왕 가르토', sprite: 'bandit_king', level: 9, hp: 1700, atk: 32, def: 9, speed: 40, xp: 650, gold: [400, 500], kind: 'human', attacks: ['slash', 'charge', 'slam'], range: 30, windup: 0.7, cd: 1.3, aggro: 220, radius: 11, boss: true },
+  big_zombie: { flag: 'crypt_cleared', intro: '왕의 무덤을 지키던 자, 잿빛 저주에 삼켜지다', defeat: ['묘지기 모스가 잠들었다', '서약석과 왕의 유언 조각을 손에 넣었다'], phaseMsg: ['모스가 썩은 숨을 내뿜는다! (2페이즈)', '모스가 광폭해졌다! (3페이즈)'], summons: 'tiny_zombie', id: 'big_zombie', name: '묘지기 모스', sprite: 'big_zombie', level: 7, hp: 900, atk: 26, def: 6, speed: 30, xp: 300, gold: [120, 180], kind: 'undead', attacks: ['slam', 'bite', 'spit'], range: 28, windup: 0.8, cd: 1.6, aggro: 200, radius: 11, weak: ['holy', 'fire'], boss: true },
+  bandit_king: { flag: 'king_dead', retreatAt: 0.06, intro: '"왕관 조각은... 아무에게도 넘길 수 없다!"', defeat: ['가르토가 무릎을 꿇었다', '"...졌다. 이야기를 들어 주겠나."'], phaseMsg: ['"얘들아, 나와라!" 부하를 부른다! (2페이즈)', '가르토가 마지막 힘을 짜낸다! (3페이즈)'], id: 'bandit_king', name: '도적왕 가르토', sprite: 'bandit_king', level: 9, hp: 1700, atk: 32, def: 9, speed: 40, xp: 650, gold: [400, 500], kind: 'human', attacks: ['slash', 'charge', 'slam'], range: 30, windup: 0.7, cd: 1.3, aggro: 220, radius: 11, boss: true },
   // ── 2장: 실바넬의 썩은 숲 ──
   blight_wolf: { id: 'blight_wolf', name: '타락한 늑대', sprite: 'blight_wolf', level: 8, hp: 150, atk: 25, def: 5, speed: 64, xp: 55, gold: [8, 16], kind: 'wild', attacks: ['bite'], range: 18, windup: 0.35, cd: 1.1, aggro: 100, radius: 6, weak: ['fire', 'holy'] },
   swampy: { id: 'swampy', name: '썩은 슬라임', sprite: 'swampy', level: 8, hp: 170, atk: 23, def: 4, speed: 30, xp: 50, gold: [6, 14], kind: 'spirit', attacks: ['bite', 'spit'], range: 70, windup: 0.5, cd: 1.6, aggro: 90, radius: 7, weak: ['fire'], resist: ['poison'] },
@@ -327,11 +373,32 @@ export const ENEMIES: Record<string, EnemyData> = {
   pumpkin_dude: { id: 'pumpkin_dude', name: '호박 망령', sprite: 'pumpkin_dude', level: 9, hp: 190, atk: 30, def: 6, speed: 52, xp: 64, gold: [10, 20], kind: 'undead', attacks: ['slash', 'charge'], range: 20, windup: 0.45, cd: 1.3, aggro: 110, radius: 6, weak: ['fire', 'holy'] },
   forest_spirit: { id: 'forest_spirit', name: '타락한 숲정령', sprite: 'forest_spirit', level: 10, hp: 190, atk: 30, def: 6, speed: 40, xp: 75, gold: [10, 22], kind: 'spirit', attacks: ['cast'], range: 105, windup: 0.6, cd: 1.6, aggro: 120, radius: 6, keepDist: 55, weak: ['fire', 'holy'], resist: ['poison'], drops: [['spirit_stone', 0.5]] },
   dryad: { id: 'dryad', name: '미쳐 버린 드라이어드', sprite: 'dryad', level: 11, hp: 620, atk: 34, def: 8, speed: 46, xp: 220, gold: [40, 70], kind: 'spirit', attacks: ['cast', 'slash'], range: 110, windup: 0.6, cd: 1.5, aggro: 140, radius: 6, keepDist: 60, weak: ['fire'], resist: ['poison'], elite: true, summons: 'slug' },
-  forest_lord: { id: 'forest_lord', name: '타락한 정령 실바레스', sprite: 'forest_lord', level: 13, hp: 4200, atk: 44, def: 12, speed: 40, xp: 2000, gold: [900, 1200], kind: 'spirit', attacks: ['slash', 'spit', 'slam', 'charge'], range: 30, windup: 0.65, cd: 1.25, aggro: 240, radius: 11, weak: ['fire', 'holy'], resist: ['poison'], boss: true },
+  forest_lord: { flag: 'spirit_dead', intro: '"숲은... 썩어서... 다시 태어난다..."', defeat: ['타락한 정령 실바레스 정화!', '생명석이 맑은 빛을 되찾았다'], phaseMsg: ['실바레스가 숲정령을 부르고 가시가 쏟아진다! (2페이즈)', '썩은 심장이 고동친다! (3페이즈)'], meteor: 'thorn', summons: 'forest_spirit', id: 'forest_lord', name: '타락한 정령 실바레스', sprite: 'forest_lord', level: 13, hp: 4200, atk: 44, def: 12, speed: 40, xp: 2000, gold: [900, 1200], kind: 'spirit', attacks: ['slash', 'spit', 'slam', 'charge'], range: 30, windup: 0.65, cd: 1.25, aggro: 240, radius: 11, weak: ['fire', 'holy'], resist: ['poison'], boss: true },
+  // ── 프롤로그 ──
+  ash_beast: { id: 'ash_beast', name: '잿빛 짐승', sprite: 'ash_wolf', level: 1, hp: 30, atk: 7, def: 0, speed: 54, xp: 18, gold: [2, 5], kind: 'wild', attacks: ['bite'], range: 18, windup: 0.5, cd: 1.5, aggro: 140, radius: 6, weak: ['fire', 'holy'] },
+  // ── 3장: 아이언후드 용광로 ──
+  magma_slime: { id: 'magma_slime', name: '용암 슬라임', sprite: 'magma_slime', level: 14, hp: 360, atk: 40, def: 10, speed: 30, xp: 120, gold: [14, 26], kind: 'spirit', attacks: ['bite', 'spit'], range: 70, windup: 0.5, cd: 1.6, aggro: 100, radius: 7, weak: ['ice'], resist: ['fire'] },
+  stone_golem: { id: 'stone_golem', name: '바위 골렘', sprite: 'stone_golem', level: 15, hp: 520, atk: 46, def: 18, speed: 26, xp: 140, gold: [16, 30], kind: 'spirit', attacks: ['slam'], range: 24, windup: 0.7, cd: 1.8, aggro: 90, radius: 7, weak: ['phys'] },
+  forge_spirit: { id: 'forge_spirit', name: '용광로 정령', sprite: 'fire_spirit', level: 15, hp: 380, atk: 44, def: 10, speed: 42, xp: 135, gold: [16, 28], kind: 'spirit', attacks: ['cast'], range: 105, windup: 0.6, cd: 1.6, aggro: 120, radius: 6, keepDist: 55, weak: ['ice'], resist: ['fire'] },
+  forge_golem: { flag: 'golem_dead', intro: '태초의 용광로를 지키던 수호자, 단조석의 재에 미치다', defeat: ['용광로 골렘이 식어 멈췄다', '단조 연대기와 단조석을 찾았다'], phaseMsg: ['용암이 넘쳐흐른다! (2페이즈)', '골렘의 심장이 시뻘겋게 달아오른다! (3페이즈)'], meteor: 'fire', summons: 'magma_slime', id: 'forge_golem', name: '용광로 골렘', sprite: 'forge_golem', level: 17, hp: 7000, atk: 58, def: 20, speed: 34, xp: 3500, gold: [1500, 1800], kind: 'spirit', attacks: ['slam', 'slash', 'charge'], range: 30, windup: 0.75, cd: 1.35, aggro: 240, radius: 12, weak: ['ice'], resist: ['fire'], boss: true },
+  // ── 4장: 붉은 평원 ──
+  warband: { id: 'warband', name: '카르쿠쉬의 전사', sprite: 'masked_orc', level: 17, hp: 560, atk: 52, def: 14, speed: 44, xp: 160, gold: [20, 36], kind: 'human', attacks: ['slash', 'slam'], range: 22, windup: 0.6, cd: 1.5, aggro: 110, radius: 7 },
+  war_shaman: { id: 'war_shaman', name: '피의 주술사', sprite: 'orc_shaman', level: 17, hp: 420, atk: 50, def: 10, speed: 38, xp: 165, gold: [20, 36], kind: 'human', attacks: ['cast'], range: 110, windup: 0.6, cd: 1.7, aggro: 130, radius: 6, keepDist: 60 },
+  war_boar: { id: 'war_boar', name: '전쟁 멧돼지', sprite: 'boar', level: 16, hp: 480, atk: 50, def: 12, speed: 46, xp: 140, gold: [14, 26], kind: 'wild', attacks: ['charge'], range: 90, windup: 0.7, cd: 2.4, aggro: 100, radius: 7 },
+  arena_champion: { id: 'arena_champion', name: '투기장 챔피언 우르크', sprite: 'orc_warrior', level: 18, hp: 2200, atk: 58, def: 16, speed: 52, xp: 900, gold: [300, 400], kind: 'human', attacks: ['slash', 'charge', 'slam'], range: 22, windup: 0.5, cd: 1.1, aggro: 160, radius: 7, elite: true },
+  karkush: { flag: 'karkush_dead', intro: '"혈맹석이 말한다... 모든 부족은 내 도끼 아래 하나다!"', defeat: ['대족장 카르쿠쉬가 쓰러졌다', '혈맹석의 광기가 걷힌다'], phaseMsg: ['카르쿠쉬가 전사들을 부른다! (2페이즈)', '혈맹석이 피처럼 붉게 타오른다! (3페이즈)'], summons: 'warband', id: 'karkush', name: '대족장 카르쿠쉬', sprite: 'karkush', level: 20, hp: 9000, atk: 64, def: 20, speed: 44, xp: 5000, gold: [2000, 2400], kind: 'human', attacks: ['slash', 'charge', 'slam'], range: 30, windup: 0.6, cd: 1.2, aggro: 240, radius: 12, boss: true },
+  // ── 5장: 균열의 땅 ──
+  legion_imp: { id: 'legion_imp', name: '군단 임프', sprite: 'imp', level: 21, hp: 520, atk: 60, def: 14, speed: 64, xp: 190, gold: [24, 40], kind: 'demon', attacks: ['cast'], range: 100, windup: 0.45, cd: 1.3, aggro: 120, radius: 5, keepDist: 50, weak: ['holy'] },
+  legion_blade: { id: 'legion_blade', name: '군단 마검사', sprite: 'chort', level: 22, hp: 820, atk: 70, def: 20, speed: 52, xp: 230, gold: [28, 46], kind: 'demon', attacks: ['slash', 'charge'], range: 22, windup: 0.5, cd: 1.2, aggro: 120, radius: 6, weak: ['holy'] },
+  rift_spirit: { id: 'rift_spirit', name: '꺼져 가는 불씨', sprite: 'fire_spirit', level: 21, hp: 600, atk: 64, def: 14, speed: 40, xp: 200, gold: [24, 40], kind: 'spirit', attacks: ['cast'], range: 100, windup: 0.6, cd: 1.5, aggro: 120, radius: 6, keepDist: 55, weak: ['ice'], resist: ['fire'] },
+  royal_guard: { id: 'royal_guard', name: '왕국 근위병', sprite: 'royal_guard', level: 22, hp: 900, atk: 68, def: 24, speed: 46, xp: 240, gold: [30, 50], kind: 'human', attacks: ['slash', 'slam'], range: 22, windup: 0.55, cd: 1.3, aggro: 120, radius: 6 },
+  vargon2: { flag: 'vargon_resolved', intro: '"말로 끝낼 수 없다면, 칼로 끝내자."', defeat: ['바르곤이 쓰러졌다', '"...노르하임의 이름을... 기억해 다오."'], phaseMsg: ['하늘에서 불꽃이 쏟아진다! (2페이즈)', '바르곤이 마지막 불을 태운다! (3페이즈)'], meteor: 'fire', summons: 'legion_imp', id: 'vargon2', name: '선봉대장 바르곤', sprite: 'big_demon', level: 23, hp: 12000, atk: 74, def: 22, speed: 46, xp: 6000, gold: [2500, 3000], kind: 'demon', attacks: ['slash', 'cast', 'slam', 'charge'], range: 30, windup: 0.6, cd: 1.15, aggro: 240, radius: 11, weak: ['holy'], boss: true },
+  ash_king: { flag: 'mordain_dead', intro: '"보아라, 이것이 대륙을 구할 왕의 모습이다!"', defeat: ['잿빛 왕 모르데인이 재가 되어 흩어진다', '"나는... 대륙을... 구하려..."'], phaseMsg: ['모르데인이 근위병을 부른다! (2페이즈)', '왕관이 모르데인을 태운다! (3페이즈)'], meteor: 'ash', summons: 'royal_guard', id: 'ash_king', name: '잿빛 왕 모르데인', sprite: 'ash_king', level: 24, hp: 14000, atk: 76, def: 22, speed: 42, xp: 7000, gold: [3000, 3500], kind: 'human', attacks: ['cast', 'slam', 'slash'], range: 110, windup: 0.6, cd: 1.2, aggro: 240, radius: 10, keepDist: 60, weak: ['holy'], boss: true, scale: 2 },
+  belkar: { flag: 'belkar_dead', intro: '"천 년을 기다렸다. 남쪽이 북쪽을 태운 그 밤부터."', defeat: ['마왕 벨카르가 무릎을 꿇었다', '첫 불꽃의 마지막 조각이 깜빡인다'], phaseMsg: ['마왕의 갑옷이 부서지고 재의 형상이 드러난다! (2페이즈)', '노르하임 왕자의 본모습, 불꽃이 깨어난다! (3페이즈)'], meteor: 'fire', summons: 'legion_blade', id: 'belkar', name: '마왕 벨카르', sprite: 'belkar', level: 25, hp: 20000, atk: 82, def: 24, speed: 46, xp: 10000, gold: [5000, 6000], kind: 'demon', attacks: ['slash', 'cast', 'slam', 'charge'], range: 32, windup: 0.55, cd: 1.05, aggro: 260, radius: 12, weak: ['holy'], boss: true },
   imp: { id: 'imp', name: '임프', sprite: 'imp', level: 9, hp: 120, atk: 26, def: 5, speed: 62, xp: 60, gold: [10, 20], kind: 'demon', attacks: ['cast'], range: 100, windup: 0.45, cd: 1.4, aggro: 120, radius: 5, keepDist: 50, weak: ['holy'] },
   chort: { id: 'chort', name: '마검사', sprite: 'chort', level: 10, hp: 230, atk: 32, def: 9, speed: 50, xp: 90, gold: [15, 30], kind: 'demon', attacks: ['slash', 'charge'], range: 22, windup: 0.5, cd: 1.3, aggro: 120, radius: 6, weak: ['holy'] },
   fire_spirit: { id: 'fire_spirit', name: '불 정령', sprite: 'fire_spirit', level: 10, hp: 180, atk: 30, def: 6, speed: 40, xp: 80, gold: [12, 25], kind: 'spirit', attacks: ['cast'], range: 100, windup: 0.6, cd: 1.6, aggro: 120, radius: 6, keepDist: 55, weak: ['ice'], resist: ['fire'] },
-  big_demon: { id: 'big_demon', name: '균열의 선봉장 바르곤', sprite: 'big_demon', level: 12, hp: 3200, atk: 42, def: 12, speed: 44, xp: 1500, gold: [800, 1000], kind: 'demon', attacks: ['slash', 'cast', 'slam', 'charge'], range: 30, windup: 0.65, cd: 1.2, aggro: 240, radius: 11, weak: ['holy'], boss: true },
+  big_demon: { flag: 'vargon_dead', retreatAt: 0.35, intro: '"인간의 개들이여, 칼을 들어라."', defeat: ['바르곤이 물러난다', '"너희가 지키는 평화가 무엇으로 타고 있는지... 알기나 하느냐."'], phaseMsg: ['하늘에서 불꽃이 쏟아진다! (2페이즈)', '바르곤이 마계의 힘을 해방한다! (3페이즈)'], meteor: 'fire', summons: 'imp', id: 'big_demon', name: '선봉대장 바르곤', sprite: 'big_demon', level: 10, hp: 2600, atk: 36, def: 10, speed: 44, xp: 1200, gold: [600, 800], kind: 'demon', attacks: ['slash', 'cast', 'slam', 'charge'], range: 30, windup: 0.65, cd: 1.2, aggro: 240, radius: 11, weak: ['holy'], boss: true },
 };
 
 // ── 레벨 ─────────────────────────────────────────────────────────────

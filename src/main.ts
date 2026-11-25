@@ -197,7 +197,7 @@ function startGame(slot: number, hero: ReturnType<typeof newHero>) {
   if (!hero.flags.intro) {
     hero.flags.intro = true;
     const leader = game.npcs.find((n) => n.id === HOME[hero.race].leader);
-    const lines = QUESTS.main1.offerByRace?.[hero.race] ?? QUESTS.main1.offer;
+    const lines = QUESTS.pro.offerByRace?.[hero.race] ?? QUESTS.pro.offer;
     if (leader) setTimeout(() => ui.showTalk(leader, lines, () => ui.closeModal()), 900);
   }
   ui.save();
