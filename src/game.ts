@@ -14,6 +14,7 @@ import { updateEnemy } from './ai';
 import { renderGame } from './render';
 import { RARITY } from './data';
 import { anim } from './assets';
+import { HOME, MAP_NAME, NPC_MAP, NPC_NAME, resolveNpc } from './homes';
 
 export interface UIHooks {
   toast(msg: string, color?: string): void;
@@ -1034,10 +1035,10 @@ export class Game {
     if (countOf(this.hero, 'use', id) <= 0) { this.ui.toast(`${c.name}이(가) 없다`, '#f99'); sfx('deny'); return; }
     if ((p.cds['item_' + id] ?? 0) > 0) return;
     if (c.recall) {
-      if (this.map.id === 'village') { this.ui.toast('이미 마을에 있다', '#ff9'); return; }
+      if (this.map.id === HOME[this.hero.race].map) { this.ui.toast('이미 고향 마을에 있다', '#ff9'); return; }
       if (this.boss && !this.boss.dead && this.boss.aggro) { this.ui.toast('보스전 중에는 귀환할 수 없다!', '#f66'); return; }
       removeCount(this.hero, 'use', id, 1);
-      this.travel('village', 'statue');
+      this.travel(HOME[this.hero.race].map, 'statue');
       this.ui.hudDirty();
       return;
     }
@@ -1223,7 +1224,7 @@ export class Game {
     p.hp = this.der.maxHp;
     p.mp = this.der.maxMp;
     p.st = 100;
-    this.loadMap('village', 'statue');
+    this.loadMap(HOME[this.hero.race].map, 'statue');
   }
 
   killEnemy(e: Enemy): void {
@@ -1634,6 +1635,11 @@ export class Game {
         this.ui.toast('여신상에 기도했다. 저장 완료 · HP/MP 회복', '#facb3e');
         return;
       }
+      if (o.tag === 'sign_home' && Math.hypot(o.x - p.x, o.y - p.y) < 30) {
+        const near = this.map.exits.filter((e) => e.to.endsWith('home')).sort((a, b) => Math.hypot(a.x * TS - p.x, a.y * TS - p.y) - Math.hypot(b.x * TS - p.x, b.y * TS - p.y))[0];
+        if (near) this.ui.toast(`이 길로 가면: ${near.label}`, '#fdf7ed');
+        return;
+      }
       if (o.tag === 'sign_field' && Math.hypot(o.x - p.x, o.y - p.y) < 30) {
         this.ui.toast('← 하스벨 마을   ↖ 잊혀진 지하 묘지   → 도적단 요새', '#fdf7ed');
         return;
@@ -1744,7 +1750,7 @@ export class Game {
       const def = QUESTS[q.id];
       const st = def.stages[q.stage];
       if (!st) continue;
-      if (st.k === 'talk' && st.npc === npc) {
+      if (st.k === 'talk' && resolveNpc(st.npc, this.hero.race) === npc) {
         // 수집 퀘스트: 앞 단계가 수집이면 재료를 회수
         const prev = def.stages[q.stage - 1];
         if (prev && prev.k === 'collect') {
@@ -1754,7 +1760,7 @@ export class Game {
         q.stage++;
         if (q.stage >= def.stages.length) {
           this.completeQuest(q.id);
-          return { quest: def, lines: def.done };
+          return { quest: def, lines: def.doneByRace?.[this.hero.race] ?? def.done };
         }
         if (q.id === 'main2' && q.stage === 1)
           return { quest: def, lines: ['촌장님이 보냈나? 마침 잘 왔다.', '사흘 전 순찰대가 북서쪽 지하 묘지를 조사하러 갔다가 돌아오지 않았다.', '묘지 깊은 곳에 거대한 구울이 산다는 소문이 있다. 놈을 처치하고 순찰대의 흔적을 찾아다오.', '(TIP: 언데드는 성속성과 화염에 약하다)'] };
@@ -1805,7 +1811,7 @@ export class Game {
   /** NPC가 줄 수 있는 새 퀘스트 */
   offerFor(npc: string): QuestDef | null {
     for (const def of Object.values(QUESTS)) {
-      if (def.giver !== npc || def.autoAccept || this.qs(def.id)) continue;
+      if (resolveNpc(def.giver, this.hero.race) !== npc || def.autoAccept || this.qs(def.id)) continue;
       if (def.race && def.race !== this.hero.race) continue;
       if (def.requires && !this.qs(def.requires)?.done) continue;
       if (this.hero.level < 2 && def.id !== 'smith_hides') continue;
@@ -1834,7 +1840,6 @@ export class Game {
       skelet: 'crypt', zombie: 'crypt', tiny_zombie: 'crypt', necromancer: 'crypt',
     };
     const MAT_ENEMY: Record<string, string> = { hide: 'boar', silk: 'spider', bone: 'skelet' };
-    const NPC_NAME: Record<string, string> = { elder: '촌장 오스윈', captain: '경비대장 레아', smith: '대장장이 브론', merchant: '행상인 시스', alchemist: '연금술사 리엘', priest: '신관 마렌', stranger: '두건 쓴 방랑자' };
     let map = '';
     let label = '';
     let point: (() => { x: number; y: number } | null) = () => null;
@@ -1846,9 +1851,10 @@ export class Game {
       return best;
     };
     if (st.k === 'talk') {
-      map = 'village';
-      label = NPC_NAME[st.npc] ?? '';
-      point = () => { const n = this.npcs.find((n) => n.id === st.npc); return n ? { x: n.x, y: n.y - 14 } : null; };
+      const who = resolveNpc(st.npc, this.hero.race);
+      map = NPC_MAP[who] ?? 'village';
+      label = NPC_NAME[who] ?? '';
+      point = () => { const n = this.npcs.find((n) => n.id === who); return n ? { x: n.x, y: n.y - 14 } : null; };
     } else if (st.k === 'kill' || st.k === 'collect') {
       const ids = st.k === 'kill' ? (Array.isArray(st.enemy) ? st.enemy : [st.enemy]) : [MAT_ENEMY[st.mat] ?? ''];
       if (st.k === 'collect' && st.mat === 'bone') ids.push('zombie', 'tiny_zombie');
@@ -1879,15 +1885,14 @@ export class Game {
     const hop = this.map.id === 'field' ? map : 'field';
     const ex = this.map.exits.find((e) => e.to === hop) ?? this.map.exits.find((e) => e.to === 'field');
     if (!ex) return null;
-    const names: Record<string, string> = { village: '하스벨 마을', field: '솔라리온 평원', crypt: '지하 묘지', fort: '도적단 요새', rift: '균열의 틈' };
-    return { x: (ex.x + ex.w / 2) * TS, y: (ex.y + ex.h / 2) * TS, label: `${names[ex.to]} 방향 · ${label}`, exit: true };
+    return { x: (ex.x + ex.w / 2) * TS, y: (ex.y + ex.h / 2) * TS, label: `${MAP_NAME[ex.to] ?? ''} 방향 · ${label}`, exit: true };
   }
 
   npcMarker(npc: string): '!' | '?' | '' {
     for (const q of this.hero.quests) {
       if (q.done) continue;
       const st = QUESTS[q.id].stages[q.stage];
-      if (st?.k === 'talk' && st.npc === npc) {
+      if (st?.k === 'talk' && resolveNpc(st.npc, this.hero.race) === npc) {
         const prev = QUESTS[q.id].stages[q.stage - 1];
         if (prev?.k === 'collect' && countOf(this.hero, 'mat', prev.mat) < prev.n) continue;
         return '?';

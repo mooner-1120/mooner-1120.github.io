@@ -1,4 +1,5 @@
 // 아이템 인스턴스 · 랜덤 옵션 · 강화 · 파생 능력치 계산 (기획서 5.2, 8장)
+import { HOME } from './homes';
 import {
   AFFIX_NAMES, AffixKey, BASE_BY_ID, BASE_ITEMS, BaseItem, CLASSES, ClassId, CONSUMABLES, EquipSlot, MATERIALS,
   RACES, RARITY, Rarity, StatKey, Stats,
@@ -158,7 +159,7 @@ export function newHero(name: string, race: Hero['race'], cls: ClassId, gender: 
     alloc: { str: 0, dex: 0, int: 0, vit: 0, wis: 0 }, points: 0, skillPts: 0,
     skillLv: Object.fromEntries(c.skills.map((s) => [s.id, s.unlock <= 1 ? 1 : 0])),
     equip: {}, inv: new Array(INV_SIZE).fill(null), quick: ['hp_s', 'mp_s', 'antidote'],
-    gold: 60, soul: 0, quests: [], flags: {}, map: 'village', x: -1, y: -1, hp: -1, mp: -1, playtime: 0, kills: 0,
+    gold: 60, soul: 0, quests: [], flags: {}, map: HOME[race].map, x: -1, y: -1, hp: -1, mp: -1, playtime: 0, kills: 0,
   };
   h.equip.weapon = makeItem(c.weapons[0], 1, 0);
   h.equip.offhand = makeItem(c.offhand, 1, 0);

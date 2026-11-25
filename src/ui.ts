@@ -10,6 +10,7 @@ import {
   addToInv, baseOf, canEquip, countOf, Hero, InvEntry, itemName, itemPrice, itemTooltip, makeItem, rollRarity, slotFor, entryIcon,
 } from './items';
 import { greeting, priceMul, QUESTS } from './quests';
+import { HEALERS, SHOP_KIND, SHOP_TITLE, SMITHS } from './homes';
 
 export const SKILL_ICONS: Record<string, string> = {
   block: 'i_shield_iron', dash_slash: 'weapon_regular_sword', war_cry: 'i_helm_iron', earth_split: 'weapon_big_hammer',
@@ -200,7 +201,7 @@ export class UI implements UIHooks {
     }
     const offer = g.offerFor(n.id);
     if (offer) {
-      this.showTalk(n, offer.offer, () => {
+      this.showTalk(n, offer.offerByRace?.[this.hero.race] ?? offer.offer, () => {
         this.showOptions(n, `[${offer.race ? '종족 퀘스트' : '퀘스트'}] ${offer.name}`, [
           { label: '수락한다', fn: () => { g.startQuest(offer.id); this.closeModal(); } },
           { label: '나중에', fn: () => this.closeModal() },
@@ -213,12 +214,11 @@ export class UI implements UIHooks {
 
   npcServices(n: NpcEnt): void {
     const opts: { label: string; fn: () => void }[] = [];
-    if (n.id === 'merchant' || n.id === 'alchemist') opts.push({ label: '상점', fn: () => this.openShop(n.id) });
-    if (n.id === 'smith') {
-      opts.push({ label: '장비 강화', fn: () => this.openSmith() });
-      opts.push({ label: '장비 구매', fn: () => this.openShop('smith') });
-    }
-    if (n.id === 'priest') {
+    if (SMITHS.has(n.id)) {
+      opts.push({ label: '장비 강화', fn: () => this.openSmith(n.id) });
+      opts.push({ label: '장비 구매', fn: () => this.openShop(n.id) });
+    } else if (SHOP_KIND[n.id]) opts.push({ label: '상점', fn: () => this.openShop(n.id) });
+    if (HEALERS.has(n.id)) {
       opts.push({ label: '치료 받기', fn: () => { this.g.p.hp = this.g.der.maxHp; this.g.p.mp = this.g.der.maxMp; this.g.p.status = {}; sfx('heal'); this.toast('상처가 모두 나았다', '#7bf06a'); this.closeModal(); } });
       opts.push({ label: '여정 기록 (저장)', fn: () => { this.g.saveHero(); this.save(); sfx('holy'); this.toast('저장되었다', '#facb3e'); this.closeModal(); } });
       opts.push({ label: '능력치·스킬 초기화 (200G)', fn: () => this.respec() });
@@ -563,14 +563,14 @@ export class UI implements UIHooks {
     this.selInv = null;
     this.selEq = null;
     const lvl = this.hero.level;
-    if (npc === 'smith') {
+    if (SHOP_KIND[npc] === 'gear') {
       const mine = BASE_ITEMS.filter((b) => b.tier <= lvl + 3 && b.tier >= lvl - 4 && b.slot !== 'ring' && b.slot !== 'amulet' && (!b.cls || b.cls.includes(this.hero.cls)));
       const pick = mine.sort(() => Math.random() - 0.5).slice(0, 8);
       this.shopStock = pick.map((b) => ({ kind: 'eq', item: makeItem(b.id, Math.max(b.tier, lvl), Math.min(2, rollRarity(-20)) as 0) }));
     } else {
-      const uses = npc === 'alchemist' ? ['hp_s', 'hp_l', 'mp_s', 'mp_l', 'antidote'] : ['hp_s', 'mp_s', 'antidote', 'meat', 'bomb', 'recall'];
+      const uses = SHOP_KIND[npc] === 'potion' ? ['hp_s', 'hp_l', 'mp_s', 'mp_l', 'antidote'] : ['hp_s', 'mp_s', 'antidote', 'meat', 'bomb', 'recall'];
       this.shopStock = uses.map((id) => ({ kind: 'use', id }));
-      if (npc === 'merchant') {
+      if (SHOP_KIND[npc] === 'general') {
         const acc = BASE_ITEMS.filter((b) => (b.slot === 'ring' || b.slot === 'amulet') && b.tier <= lvl + 2);
         for (let i = 0; i < 3 && acc.length; i++) this.shopStock.push({ kind: 'eq', item: makeItem(acc[(Math.random() * acc.length) | 0].id, lvl, Math.min(2, rollRarity(-10)) as 0) });
       }
@@ -583,7 +583,7 @@ export class UI implements UIHooks {
   }
   renderShop(): void {
     const h = this.hero;
-    const title = this.shopNpc === 'smith' ? '브론의 대장간' : this.shopNpc === 'alchemist' ? '리엘의 연금 공방' : '시스의 잡화점';
+    const title = SHOP_TITLE[this.shopNpc] ?? '상점';
     const mul = priceMul(this.shopNpc, h.race);
     const stock = this.shopStock.map((s, i) => {
       const name = s.kind === 'use' ? CONSUMABLES[s.id!].name : itemName(s.item!);
@@ -641,7 +641,9 @@ export class UI implements UIHooks {
   }
 
   // ── 대장간 강화 (+1~+10, 실패해도 하락 없음 · 재료만 잃음) ─────
-  openSmith(): void {
+  smithNpc = 'smith';
+  openSmith(npc = 'smith'): void {
+    this.smithNpc = npc;
     this.smithSel = null;
     this.renderSmith();
   }
@@ -654,7 +656,7 @@ export class UI implements UIHooks {
   }
   smithCost(it: import('./items').ItemInst): { gold: number; soul: number; rate: number } {
     const n = it.plus;
-    const mul = priceMul('smith', this.hero.race);
+    const mul = priceMul(this.smithNpc, this.hero.race);
     return { gold: Math.round((40 + n * n * 25 + it.ilvl * 10) * mul), soul: n < 3 ? 0 : n < 6 ? 1 : n < 8 ? 2 : 3, rate: [1, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2][n] ?? 0 };
   }
   renderSmith(): void {
@@ -678,7 +680,7 @@ export class UI implements UIHooks {
     }
     this.openModal('smith', `
       <div class="panel menu shop">
-        <div class="tabs"><span class="ttl">브론의 대장간 — 장비 강화</span><button class="x">✕</button></div>
+        <div class="tabs"><span class="ttl">${SHOP_TITLE[this.smithNpc] ?? '대장간'} — 장비 강화</span><button class="x">✕</button></div>
         <div class="mbody"><div class="invwrap"><div class="eqcol"><div class="stock">${list.join('')}</div></div><div class="invcol"><div class="detail tall">${right}</div></div></div></div>
       </div>`);
     const m = $('#modal');

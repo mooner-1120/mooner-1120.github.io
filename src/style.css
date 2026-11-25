@@ -209,6 +209,7 @@ table.keys td:first-child { color: var(--gold); white-space: nowrap; }
 .card:hover { border-color: var(--edge2); }
 .card.sel { border-color: var(--gold); background: #2a1e18; box-shadow: 0 0 0 2px #120d10, 0 0 12px #facb3e44; }
 .card h3 { margin: 0; color: #ffe9a8; font-size: 16px; }
+.card .home { color: #ffd36a; font-size: 11px; }
 .card .mods .up { color: #7bf06a; }
 .card .mods .down { color: #ff7a6a; }
 .card .pas { background: #241b20; padding: 4px; width: 100%; font-size: 11px; }

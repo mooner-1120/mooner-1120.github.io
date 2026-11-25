@@ -35,7 +35,7 @@ function border(m: GameMap, r: () => number, thick = 2, kinds = [0, 1, 2]) {
   for (let y = 0; y < m.h; y++)
     for (let x = 0; x < m.w; x++) {
       const edge = x < thick || y < thick || x >= m.w - thick || y >= m.h - thick;
-      if (!edge || m.get(x, y) === T.Dirt) continue;
+      if (!edge || m.get(x, y) === T.Dirt || m.get(x, y) === T.Water || m.get(x, y) === T.Lava) continue;
       if ((x + y) % 2 === 0 || r() < 0.5) tree(m, x, y, kinds[(r() * kinds.length) | 0]);
       else m.solid[m.idx(x, y)] = 1;
     }
@@ -126,6 +126,11 @@ export function buildField(): GameMap {
   road([[0, 33], [14, 33], [26, 30], [40, 32], [55, 34], [70, 33], [86, 33], [90, 33]]);
   road([[26, 30], [24, 20], [20, 12], [20, 8]], 1);
   road([[55, 34], [58, 46], [64, 54]], 1);
+  // 고향 마을로 가는 길: 북쪽 실바넬(엘프)·아이언후드(드워프), 남쪽 붉은 평원(오크)·그림자 은신처(마족)
+  road([[40, 0], [39, 12], [33, 22], [26, 30]], 1);
+  road([[74, 0], [73, 14], [70, 33]], 1);
+  road([[32, 65], [33, 52], [40, 32]], 1);
+  road([[86, 65], [80, 50], [72, 34]], 1);
   // 강: 북에서 남으로 흐르다 다리(길) 아래로
   for (let y = 0; y < H; y++) {
     const cx = 46 + Math.sin(y * 0.18) * 3;
@@ -154,6 +159,15 @@ export function buildField(): GameMap {
   for (let y = 30; y <= 36; y++) for (let x = 0; x < 4; x++) { m.solid[m.idx(x, y)] = 0; m.set(x, y, T.Dirt); }
   m.objects = m.objects.filter((o) => !(o.x < 4 * TS && o.y > 30 * TS && o.y < 37 * TS));
   for (let y = 29; y <= 37; y++) for (let x = W - 5; x < W; x++) m.solid[m.idx(x, y)] = 0;
+  // 고향 마을 길목 정리
+  for (const [cx, cy] of [[40, 1], [74, 1], [32, 64], [86, 64]]) {
+    for (let y = cy - 3; y <= cy + 3; y++) for (let x = cx - 2; x <= cx + 2; x++) {
+      if (!m.inb(x, y)) continue;
+      m.solid[m.idx(x, y)] = 0;
+      if (Math.abs(x - cx) <= 1) m.set(x, y, T.Dirt);
+    }
+    m.objects = m.objects.filter((o) => !(Math.abs(o.x / TS - cx - 0.5) < 3.5 && Math.abs(o.y / TS - cy - 0.5) < 4.5));
+  }
   // 지하 묘지 입구 (북서) — 묘비들
   m.fillRect(15, 5, 11, 7, T.Dirt);
   for (let y = 5; y < 12; y++) for (let x = 15; x < 26; x++) m.solid[m.idx(x, y)] = 0;
@@ -187,6 +201,17 @@ export function buildField(): GameMap {
   m.exits.push({ x: 63, y: 54, w: 3, h: 2, to: 'rift', spawn: 'start', label: '균열의 틈', locked: 'ch1_clear', lockMsg: '붉은 균열이 일렁이지만 아직은 들어갈 수 없다. (1장 클리어 후 개방)' });
   obj(m, 'o_sign', 6, 31, 0, 0, { tag: 'sign_field' });
   m.points.west = [px(2), px(33)];
+  m.points.elf = [px(40), px(3)];
+  m.points.dwarf = [px(74), px(3)];
+  m.points.orc = [px(32), px(62)];
+  m.points.demon = [px(86), px(62)];
+  m.exits.push(
+    { x: 39, y: 0, w: 3, h: 1, to: 'elfhome', spawn: 'gate', label: '실바넬 숲 마을' },
+    { x: 73, y: 0, w: 3, h: 1, to: 'dwarfhome', spawn: 'gate', label: '아이언후드 광산 마을' },
+    { x: 31, y: 65, w: 3, h: 1, to: 'orchome', spawn: 'gate', label: '붉은 평원 야영지' },
+    { x: 85, y: 65, w: 3, h: 1, to: 'demonhome', spawn: 'gate', label: '그림자 은신처' },
+  );
+  for (const [x, y] of [[38, 4], [72, 4], [30, 61], [88, 61]]) obj(m, 'o_sign', x, y, 0, 0, { tag: 'sign_home' });
   m.points.crypt = [px(20), px(10)];
   m.points.fort = [px(87), px(33)];
   m.points.rift = [px(64), px(57)];
@@ -359,6 +384,147 @@ export function buildRift(): GameMap {
   return m;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 종족별 고향 마을 (시작 지점)
+function homeCommon(m: GameMap, exit: { x: number; y: number; w: number; h: number }, gate: [number, number], start: [number, number], label = '솔라리온 평원', spawn = 'west') {
+  m.safe = true;
+  m.points.start = [px(start[0]), px(start[1])];
+  m.points.statue = [px(start[0]), px(start[1])];
+  m.points.gate = [px(gate[0]), px(gate[1])];
+  m.exits.push({ ...exit, to: 'field', spawn, label });
+}
+
+export function buildElfHome(): GameMap {
+  const m = new GameMap('elfhome', '실바넬 숲 마을', 40, 32, T.DGrass);
+  m.bgm = 'village';
+  const r = rng(301);
+  // 숲길 + 공터
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 40; x++) if (Math.hypot((x - 20) / 11, (y - 15) / 8) < 1) m.set(x, y, r() < 0.15 ? T.Flower : T.Grass);
+  m.fillRect(19, 22, 3, 10, T.Dirt);
+  m.fillRect(12, 14, 16, 2, T.Dirt);
+  // 개울
+  for (let y = 0; y < 32; y++) { const cx = 6 + Math.sin(y * 0.35) * 1.5; for (let x = Math.floor(cx - 1); x <= Math.ceil(cx + 1); x++) m.set(x, y, T.Water); }
+  m.fillRect(5, 14, 4, 2, T.Dirt);
+  m.fillRect(9, 14, 3, 2, T.Dirt);
+  border(m, r, 2, [3, 0, 2]);
+  for (let i = 0; i < 70; i++) {
+    const x = 2 + ((r() * 36) | 0), y = 2 + ((r() * 28) | 0);
+    if (m.get(x, y) === T.DGrass && !m.solid[m.idx(x, y)] && Math.hypot((x - 20) / 13, (y - 15) / 10) > 1) tree(m, x, y, r() < 0.5 ? 3 : r() < 0.5 ? 0 : 2);
+  }
+  obj(m, 'o_house_green', 13, 11, 4, 2);
+  obj(m, 'o_house_green', 27, 11, 4, 2);
+  obj(m, 'o_house_green', 29, 21, 4, 2);
+  obj(m, 'o_statue', 20, 13, 1, 1, { tag: 'save' });
+  obj(m, 'o_stall_blue', 13, 20, 2, 1);
+  obj(m, 'o_well', 25, 18, 2, 1);
+  for (const [x, y] of [[16, 18], [24, 21], [11, 17]]) obj(m, 'o_bush_1', x, y, 1, 1);
+  homeCommon(m, { x: 19, y: 31, w: 3, h: 1 }, [20, 28], [20, 16], '솔라리온 평원', 'elf');
+  m.npcs.push(
+    { id: 'elf_leader', name: '숲의 장로 탈리온', sprite: 'elf_m', x: px(22), y: px(13) },
+    { id: 'elf_merchant', name: '약초상 미렐', sprite: 'elf_f', x: px(15), y: px(21) },
+    { id: 'elf_guard', name: '숲지기 아엘린', sprite: 'elf_f', x: px(22), y: px(27) },
+    { id: 'elf_villager', name: '엘프 주민', sprite: 'elf_m', x: px(25), y: px(16), wander: 40 },
+  );
+  return m;
+}
+
+export function buildDwarfHome(): GameMap {
+  const m = new GameMap('dwarfhome', '아이언후드 광산 마을', 40, 30, T.Wall);
+  m.bgm = 'village';
+  m.dark = true;
+  m.ambient = 'rgba(12,8,6,0.6)';
+  m.wallStyle = 'dungeon';
+  const r = rng(302);
+  m.fillRect(3, 4, 34, 22, T.Floor);
+  m.fillRect(19, 26, 3, 4, T.Floor);
+  m.fillRect(6, 13, 28, 3, T.Cobble);
+  m.fillRect(18, 6, 4, 20, T.Cobble);
+  // 돌기둥 덩어리
+  for (const [x, y, w, h] of [[3, 4, 3, 3], [34, 4, 3, 2], [3, 22, 2, 4], [35, 21, 2, 5]]) m.fillRect(x, y, w, h, T.Wall);
+  obj(m, 'o_smithy', 10, 10, 4, 2);
+  obj(m, 'o_smithy', 29, 10, 4, 2);
+  obj(m, 'o_smithy', 10, 22, 4, 2);
+  obj(m, 'o_statue', 20, 17, 1, 1, { tag: 'save' });
+  for (const [x, y] of [[15, 6], [16, 6], [26, 22], [27, 22], [33, 17], [7, 18]]) obj(m, r() < 0.5 ? 'o_barrel' : 'crate', x, y, 1, 1);
+  for (const x of [8, 14, 26, 32]) m.addObj({ sprite: 'column', x: px(x), y: foot(19), solid: { w: 1, h: 1 } });
+  for (const x of [6, 12, 18, 23, 29, 34]) torch(m, x, 3, x % 2 === 0);
+  campfire(m, 26, 17);
+  homeCommon(m, { x: 19, y: 29, w: 3, h: 1 }, [20, 26], [20, 19], '솔라리온 평원', 'dwarf');
+  m.npcs.push(
+    { id: 'dwarf_leader', name: '광산 족장 브룸가르', sprite: 'dwarf_m', x: px(22), y: px(16) },
+    { id: 'dwarf_smith', name: '대장장이 헬가', sprite: 'dwarf_f', x: px(29), y: px(12) },
+    { id: 'dwarf_miner', name: '광부 토르비', sprite: 'dwarf_m', x: px(12), y: px(18), wander: 40 },
+  );
+  return m;
+}
+
+export function buildOrcHome(): GameMap {
+  const m = new GameMap('orchome', '붉은 평원 야영지', 42, 32, T.Dirt);
+  m.bgm = 'fort';
+  const r = rng(303);
+  for (let i = 0; i < 160; i++) { const x = (r() * 42) | 0, y = (r() * 32) | 0; if (r() < 0.5) m.set(x, y, T.Grass); }
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 42; x++) if (x < 2 || y < 2 || x >= 40 || y >= 30) m.set(x, y, T.Grass);
+  border(m, r, 2, [4, 4, 1]);
+  m.fillRect(19, 0, 3, 4, T.Dirt);
+  for (let y = 0; y < 3; y++) for (let x = 19; x < 22; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(o.x > 18 * TS && o.x < 23 * TS && o.y < 4 * TS));
+  // 투기장 (울타리 고리)
+  for (let x = 25; x <= 36; x++) for (const y of [17, 27]) if (x !== 30 && x !== 31) obj(m, 'o_fence_h', x, y, 1, 1);
+  for (let y = 18; y <= 26; y++) for (const x of [25, 36]) m.addObj({ sprite: 'o_fence_v', x: px(x), y: foot(y), solid: { w: 1, h: 1 } });
+  obj(m, 'o_tent_red', 8, 8, 2, 1);
+  obj(m, 'o_tent_red', 14, 7, 2, 1);
+  obj(m, 'o_tent', 8, 18, 2, 1);
+  obj(m, 'o_tent_red', 32, 8, 2, 1);
+  obj(m, 'o_tent', 13, 26, 2, 1);
+  campfire(m, 19, 14);
+  campfire(m, 30, 22);
+  obj(m, 'o_statue', 20, 10, 1, 1, { tag: 'save' });
+  for (const [x, y] of [[5, 13], [24, 9], [36, 12], [16, 22]]) m.addObj({ sprite: 'skull', x: px(x), y: foot(y) - 4, layer: 'ground' });
+  for (const [x, y] of [[26, 6], [27, 6], [5, 24]]) obj(m, 'o_barrel', x, y, 1, 1);
+  homeCommon(m, { x: 19, y: 0, w: 3, h: 1 }, [20, 3], [20, 12], '솔라리온 평원', 'orc');
+  m.npcs.push(
+    { id: 'orc_leader', name: '족장 우르가', sprite: 'orc_m', x: px(22), y: px(10) },
+    { id: 'orc_shaman', name: '주술사 모그', sprite: 'orc_shaman', x: px(16), y: px(15) },
+    { id: 'orc_arena', name: '투기장지기 크락', sprite: 'masked_orc', x: px(30), y: px(19) },
+    { id: 'orc_villager', name: '오크 전사', sprite: 'orc_f', x: px(12), y: px(20), wander: 40 },
+  );
+  return m;
+}
+
+export function buildDemonHome(): GameMap {
+  const m = new GameMap('demonhome', '그림자 은신처', 36, 30, T.Ash);
+  m.bgm = 'title';
+  m.dark = true;
+  m.ambient = 'rgba(30,6,20,0.5)';
+  const r = rng(304);
+  for (let y = 0; y < 30; y++) for (let x = 0; x < 36; x++) {
+    const n = Math.sin(x * 0.4 + 1) * Math.cos(y * 0.45) + Math.sin((x + y) * 0.2);
+    if (n > 1.3 && Math.hypot(x - 18, y - 14) > 7) m.set(x, y, T.Lava);
+  }
+  for (let y = 0; y < 30; y++) for (let x = 0; x < 36; x++) if (x < 2 || y < 2 || x >= 34 || y >= 28) m.set(x, y, T.Lava);
+  m.fillRect(16, 0, 3, 6, T.Ash);
+  m.fillRect(14, 5, 8, 18, T.Ash);
+  m.fillRect(6, 11, 24, 6, T.Ash);
+  for (let i = 0; i < 26; i++) {
+    const x = 3 + ((r() * 30) | 0), y = 3 + ((r() * 24) | 0);
+    if (m.get(x, y) === T.Ash && Math.hypot(x - 18, y - 14) > 5 && Math.abs(x - 17) > 2) obj(m, r() < 0.6 ? 'o_crystal' : 'o_tree_dead', x, y, 1, 1);
+  }
+  m.addObj({ sprite: 'portal', x: px(26), y: foot(12), tag: 'portal', light: 60 });
+  obj(m, 'o_tent_red', 10, 12, 2, 1);
+  obj(m, 'o_tent', 25, 18, 2, 1);
+  obj(m, 'o_statue', 18, 12, 1, 1, { tag: 'save' });
+  campfire(m, 14, 16);
+  for (const [x, y] of [[8, 16], [28, 14]]) m.addObj({ sprite: 'o_crystal', x: px(x), y: foot(y), solid: { w: 1, h: 1 }, light: 50 });
+  homeCommon(m, { x: 16, y: 0, w: 3, h: 1 }, [17, 3], [18, 14], '솔라리온 평원', 'demon');
+  m.npcs.push(
+    { id: 'demon_leader', name: '계약자 모르가스', sprite: 'chort', x: px(20), y: px(12) },
+    { id: 'imp_merchant', name: '임프 상인 키키', sprite: 'imp', x: px(12), y: px(15) },
+    { id: 'demon_exile', name: '망명자 리스', sprite: 'demon_f', x: px(22), y: px(18), wander: 30 },
+  );
+  return m;
+}
+
 export const MAP_BUILDERS: Record<string, () => GameMap> = {
   village: buildVillage, field: buildField, crypt: buildCrypt, fort: buildFort, rift: buildRift,
+  elfhome: buildElfHome, dwarfhome: buildDwarfHome, orchome: buildOrcHome, demonhome: buildDemonHome,
 };

@@ -6,12 +6,13 @@ import { CLASSES, ClassId, RACES, RaceId, STAT_NAMES, StatKey, BASE_BY_ID } from
 import { Game } from './game';
 import { newHero } from './items';
 import { QUESTS } from './quests';
+import { HOME, MAP_NAME } from './homes';
 import { deleteSlot, fmtTime, HELP_HTML, loadSettings, loadSlot, SKILL_ICONS, RACE_ICONS, UI } from './ui';
 
 const app = document.getElementById('app')!;
 app.innerHTML = `<canvas id="game"></canvas><div id="ui"></div><div id="loading">불러오는 중…</div>`;
 
-const MAPS: Record<string, string> = { village: '하스벨 마을', field: '솔라리온 평원', crypt: '지하 묘지', fort: '도적단 요새', rift: '균열의 틈' };
+const MAPS = MAP_NAME;
 
 let ui: UI;
 let game: Game;
@@ -123,7 +124,7 @@ function create(slot: number) {
       body = `<div class="cards">${(Object.keys(RACES) as RaceId[]).map((r) => {
         const d = RACES[r];
         const mods = (Object.entries(d.mods) as [StatKey, number][]).map(([k, v]) => `<span class="${v > 0 ? 'up' : 'down'}">${STAT_NAMES[k]} ${v > 0 ? '+' : ''}${v}</span>`).join(' ');
-        return `<div class="card ${st.race === r ? 'sel' : ''}" data-r="${r}">${animImg(d.bodies[st.gender], 'idle', 4)}<h3>${d.name}</h3><div class="dim">${d.concept}</div><div class="mods">${mods}</div>
+        return `<div class="card ${st.race === r ? 'sel' : ''}" data-r="${r}">${animImg(d.bodies[st.gender], 'idle', 4)}<h3>${d.name}</h3><div class="dim">${d.concept}</div><div class="home">시작: ${HOME[r].name}</div><div class="mods">${mods}</div>
           <div class="pas"><b>${d.passive.name}</b><br>${d.passive.desc}</div><div class="pas">${img(RACE_ICONS[r], 1)} <b>${d.active.name}</b><br>${d.active.desc}</div></div>`;
       }).join('')}</div>`;
     } else if (st.step === 1) {
@@ -187,8 +188,9 @@ function startGame(slot: number, hero: ReturnType<typeof newHero>) {
   ui.attach(game);
   if (!hero.flags.intro) {
     hero.flags.intro = true;
-    const elder = game.npcs.find((n) => n.id === 'elder');
-    if (elder) setTimeout(() => ui.showTalk(elder, QUESTS.main1.offer, () => ui.closeModal()), 900);
+    const leader = game.npcs.find((n) => n.id === HOME[hero.race].leader);
+    const lines = QUESTS.main1.offerByRace?.[hero.race] ?? QUESTS.main1.offer;
+    if (leader) setTimeout(() => ui.showTalk(leader, lines, () => ui.closeModal()), 900);
   }
   ui.save();
 }
