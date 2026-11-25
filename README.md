@@ -23,7 +23,7 @@ TypeScript + Canvas로 만들었고, 설치 없이 웹에서 바로 실행됩니
 
 ## 바로 플레이
 
-<https://mooner-1120.github.io/rpg_game/>
+<https://mooner-1120.github.io/>
 
 ## 조작
 

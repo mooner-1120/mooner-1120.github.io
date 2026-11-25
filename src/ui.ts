@@ -754,7 +754,7 @@ export class UI implements UIHooks {
     if (!c.on) {
       body = `
         <p>친구와 같은 세상에서 함께 모험합니다 (최대 4명).<br><span class="dim small">방장과 같은 지역에 있으면 몬스터를 함께 잡고, 처치 경험치·퀘스트 진행·전리품은 그 자리에 있는 모두가 각자 받습니다. 다른 지역에 가면 그곳에서는 각자 플레이합니다.</span></p>
-        ${isArtifact ? '<p class="warn">이 페이지(claude.ai 미리보기)에서는 멀티플레이 연결이 막혀 있습니다. 공개 주소 mooner-1120.github.io/rpg_game 에서 열어 주세요.</p>' : ''}
+        ${isArtifact ? '<p class="warn">이 페이지(claude.ai 미리보기)에서는 멀티플레이 연결이 막혀 있습니다. 공개 주소 mooner-1120.github.io 에서 열어 주세요.</p>' : ''}
         <div class="prow"><button class="btn big" id="pHost">방 만들기</button></div>
         <div class="prow"><input id="pCode" maxlength="5" placeholder="참가 코드 5자리" autocomplete="off"><button class="btn big" id="pJoin">참가하기</button></div>`;
     } else {
