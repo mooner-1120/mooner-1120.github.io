@@ -58,7 +58,7 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
     if (e.state === 'charge') e.state = 'recover';
     return;
   }
-  const p = g.p;
+  const p = g.aiTarget(e);
   const d = DIST(e, p);
   const visible = !p.dead && p.stealth <= 0;
   e.cd -= dt;
@@ -88,12 +88,7 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
 
   // 보스 등장 / 페이즈
   if (e.boss && e.aggro) {
-    if (g.boss !== e) {
-      g.boss = e;
-      g.ui.bossBar(e);
-      music('boss');
-      g.ui.big(e.d.name, e.d.id === 'bandit_king' ? '"왕관 조각은 내 거다!"' : e.d.id === 'big_zombie' ? '묘지 깊은 곳의 굶주린 자' : e.d.id === 'forest_lord' ? '"숲은... 썩어서... 다시 태어난다..."' : '"인간의 땅을 불태워라!"');
-    }
+    if (g.boss !== e) g.bossEngaged(e);
     const r = e.hp / e.maxHp;
     const want = r < 0.33 ? 3 : r < 0.66 ? 2 : 1;
     if (want > e.phase) {
@@ -210,7 +205,8 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
       if (Math.random() < 0.6) g.parts.push({ x: e.x, y: e.y, z: 0, vx: -cx * 20, vy: -cy * 20, vz: 0, life: 0.4, max: 0.4, color: '#a98a6a', size: 2, kind: 'smoke' });
       if (!e.chargeHit && DIST(e, p) < e.r + p.r + 3) {
         e.chargeHit = true;
-        g.hurtPlayer(e.d.atk * 1.4, { from: { x: bx, y: by }, knock: 80, owner: e });
+        if (p.remote) g.coop.sendDamage(p.remote, e.d.atk * 1.4, bx, by, 80);
+        else g.hurtPlayer(e.d.atk * 1.4, { from: { x: bx, y: by }, knock: 80, owner: e });
       }
       const blocked = Math.hypot(e.x - bx, e.y - by) < sp * dt * 0.3;
       if ((e.chargeT ?? 0) <= 0 || blocked) {
@@ -256,7 +252,7 @@ function moveTo(g: Game, e: E, tx: number, ty: number, sp: number, dt: number, l
 type Atk = AttackKind | 'axes' | 'meteor' | 'summon';
 
 function chooseAttack(g: Game, e: E, d: number): Atk | null {
-  const p = g.p;
+  const p = g.aiTarget(e);
   const opts: Atk[] = [...e.d.attacks];
   if (e.d.id === 'bandit_king' && e.phase >= 2) opts.push('axes', 'axes');
   if ((e.d.id === 'big_demon' || e.d.id === 'forest_lord') && e.phase >= 2) opts.push('meteor');
@@ -275,7 +271,7 @@ function chooseAttack(g: Game, e: E, d: number): Atk | null {
 }
 
 function beginAttack(g: Game, e: E, a: Atk): void {
-  const p = g.p;
+  const p = g.aiTarget(e);
   e.atk = a as AttackKind;
   (e as any).atkX = a;
   e.state = 'windup';
@@ -346,7 +342,7 @@ function beginAttack(g: Game, e: E, a: Atk): void {
 }
 
 function resolveAttack(g: Game, e: E): void {
-  const p = g.p;
+  const p = g.aiTarget(e);
   const a = (e as any).atkX as Atk;
   // 근접·광역은 위험 지역이 스스로 발동한다
   e.pending = e.pending?.filter((h) => !(h as any).fake && h.t > 0) ?? [];

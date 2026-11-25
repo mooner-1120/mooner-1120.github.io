@@ -12,6 +12,7 @@ import { QUESTS, QuestDef } from './quests';
 import { GameMap, TS, Exit } from './tilemap';
 import { updateEnemy } from './ai';
 import { renderGame } from './render';
+import { Coop } from './coop';
 import { RARITY } from './data';
 import { anim } from './assets';
 import { actionFor, settings as keySettings, shouldPrevent, ActionId } from './keys';
@@ -64,6 +65,8 @@ export class Game {
   fadeTo: (() => void) | null = null;
   mouse = { sx: 0, sy: 0, wx: 0, wy: 0, down: false, downT: 0, moved: false };
   moveKeys = new Set<string>();
+  coop: Coop = new Coop(this);
+  private wasMirrored = false;
   /** 마지막 조작이 키보드였나 — 그렇다면 스킬을 인식한 적에게 조준한다 */
   kbAim = false;
   running = false;
@@ -408,8 +411,22 @@ export class Game {
         p.path = [];
       }
     }
+    this.coop.tick(dt);
+    const mirrored = this.coop.mirrored;
+    if (mirrored !== this.wasMirrored) {
+      this.wasMirrored = mirrored;
+      if (mirrored) {
+        // 방장과 같은 지역: 내 몬스터는 치우고 방장의 몬스터를 받는다
+        this.enemies = this.enemies.filter((e) => e.remote);
+        this.hazards = this.hazards.filter((h) => h.team === 'player');
+        this.projs = this.projs.filter((p) => p.team === 'player');
+        this.respawns = [];
+        this.boss = null;
+        this.ui.bossBar(null);
+      } else this.leaveSharedWorld();
+    }
     this.updatePlayer(dt);
-    for (const e of this.enemies) updateEnemy(this, e, dt);
+    for (const e of this.enemies) if (!e.remote) updateEnemy(this, e, dt);
     this.enemies = this.enemies.filter((e) => !(e.dead && e.deathT > 0.6));
     for (const n of this.npcs) this.updateNpc(n, dt);
     this.updateProjectiles(dt);
@@ -417,7 +434,7 @@ export class Game {
     this.updateZones(dt);
     this.updateParticles(dt);
     this.updateDrops(dt);
-    this.updateRespawns(dt);
+    if (!mirrored) this.updateRespawns(dt);
     this.checkExits(dt);
     this.updateCamera(dt);
     this.saveT += dt;
@@ -686,6 +703,66 @@ export class Game {
     return fr[Math.floor(p.animT * (kind === 'run' ? 12 : 6)) % fr.length];
   }
 
+  // ── 멀티플레이 ───────────────────────────────────────────────
+  /** 몬스터가 노릴 플레이어: 나 또는 같은 지역의 다른 플레이어 중 가까운 쪽 */
+  aiTarget(e: Enemy): { x: number; y: number; r: number; dead: boolean; stealth: number; remote?: string } {
+    const p = this.p;
+    let best: { x: number; y: number; r: number; dead: boolean; stealth: number; remote?: string } = { x: p.x, y: p.y, r: p.r, dead: p.dead, stealth: p.stealth };
+    let bd = p.dead || p.stealth > 0 ? 1e9 : DIST(e, p);
+    const stick = (e as any).aiRemote as string | undefined;
+    for (const r of this.coop.targets()) {
+      const d = Math.hypot(r.x - e.x, r.y - e.y) - (r.id === stick ? 24 : 0);
+      if (d < bd) { bd = d; best = { x: r.x, y: r.y, r: 5, dead: false, stealth: 0, remote: r.id }; }
+    }
+    (e as any).aiRemote = best.remote;
+    return best;
+  }
+
+  bossEngaged(e: Enemy): void {
+    this.boss = e;
+    this.ui.bossBar(e);
+    music('boss');
+    this.ui.big(e.d.name, e.d.id === 'bandit_king' ? '"왕관 조각은 내 거다!"' : e.d.id === 'big_zombie' ? '묘지 깊은 곳의 굶주린 자' : e.d.id === 'forest_lord' ? '"숲은... 썩어서... 다시 태어난다..."' : '"인간의 땅을 불태워라!"');
+  }
+
+  /** 방장: 참가자가 때린 피해 적용 */
+  applyRemoteHit(e: Enemy, m: { base: number; element: Element; knock: number; kx?: number; ky?: number; crit: boolean; status?: [StatusId, number, number?] }): void {
+    const mul = this.elemMul(e, m.element) * (m.crit ? 1.5 : 1) * (0.95 + Math.random() * 0.1);
+    const dmg = Math.max(1, Math.round((m.base - e.d.def * 0.5) * mul));
+    e.hp -= dmg;
+    e.flash = 0.12;
+    e.hpBarT = 3;
+    e.aggro = true;
+    this.text(e.x + (Math.random() * 8 - 4), e.y - 16 * e.scale - 6, dmg + (m.crit ? '!' : ''), '#c6e4ff', m.crit);
+    const kb = (m.knock ?? 20) * (e.boss ? 0.15 : 1);
+    if (kb > 0 && m.kx !== undefined && m.ky !== undefined) { e.kbx = m.kx * kb * 4; e.kby = m.ky * kb * 4; }
+    if (m.status) this.applyStatus(e, m.status[0], m.status[1], m.status[2]);
+    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  /** 다른 플레이어의 기술 연출 */
+  remoteFx(k: string, x: number, y: number, a: number, r: number): void {
+    if (k === 'slash' || k === 'slash2') this.slashFx(x, y, a, k === 'slash2' ? '#ffe9a8' : '#fdf7ed', k === 'slash2');
+    else if (k === 'meteor' || k === 'boom') this.explosion(x, y, r, 'fire');
+    else if (k === 'hammer') this.hammerFx(x, y);
+    else if (k === 'thorn') this.thornFx(x, y);
+    else if (k === 'crack') this.crackFx({ x, y, shape: { k: 'cone', r, ang: a, spread: 0.75 }, t: 0, total: 0, team: 'player', dmg: 0, element: 'phys' });
+    else this.ringFx(x, y, r, '#fdf7ed');
+  }
+
+  /** 방장과 다른 지역이 됐다: 내 몬스터로 돌아간다 */
+  leaveSharedWorld(): void {
+    this.enemies = [];
+    this.hazards = this.hazards.filter((h) => !(h as any).remote);
+    this.projs = this.projs.filter((p) => !(p as any).remote);
+    this.boss = null;
+    this.ui.bossBar(null);
+    for (const s of this.map.spawns) {
+      if (s.tag === 'boss' && this.bossDefeated(s.id)) continue;
+      this.enemies.push(new Enemy(ENEMIES[s.id], s.x, s.y, s));
+    }
+  }
+
   // ── 키보드 이동 · 적 인식 ───────────────────────────────────────
   keyDir(): [number, number] | null {
     const k = this.moveKeys;
@@ -784,6 +861,7 @@ export class Game {
             if (p.poisonCoat > 0 && !e.dead) this.applyStatus(e, 'poison', 3, this.attackPower(false) * 0.35);
           }
           this.slashFx(p.x + Math.cos(ang) * 12, p.y - 8 + Math.sin(ang) * 10, ang, finisher ? '#ffe9a8' : '#fdf7ed', finisher);
+          this.coop.sendFx(finisher ? 'slash2' : 'slash', p.x + Math.cos(ang) * 12, p.y - 8 + Math.sin(ang) * 10, ang);
           if (!hitAny) p.combo = finisher ? 0 : p.combo;
         },
       });
@@ -811,6 +889,7 @@ export class Game {
     };
     if (o.homing) (pr as any).homing = o.homing;
     this.projs.push(pr);
+    if (pr.team === 'player' && this.coop.on) this.coop.sendVisualProjectile(pr);
     return pr;
   }
 
@@ -1155,13 +1234,24 @@ export class Game {
     const el = o.element ?? 'phys';
     let crit = !!o.crit || (!o.noCrit && Math.random() < this.der.crit);
     if (p.nextCrit && !o.noCrit) { crit = true; p.nextCrit = false; }
-    let mul = this.elemMul(e, el) * (crit ? 1.5 : 1) * (0.95 + Math.random() * 0.1);
+    let extra = 1; // 백어택·성직자 언데드 추가 피해
     if (o.backstab) {
       const facingAway = (e.flip && p.x > e.x) || (!e.flip && p.x < e.x);
-      if (facingAway) mul *= 1.3;
+      if (facingAway) extra *= 1.3;
     }
-    if (el === 'holy' && e.d.kind === 'undead' && this.hero.cls === 'cleric') mul *= 1.2;
+    if (el === 'holy' && e.d.kind === 'undead' && this.hero.cls === 'cleric') extra *= 1.2;
+    const mul = this.elemMul(e, el) * (crit ? 1.5 : 1) * (0.95 + Math.random() * 0.1) * extra;
     const dmg = Math.max(1, Math.round((base - e.d.def * 0.5) * mul));
+    if (e.remote) {
+      // 방장의 몬스터: 피해는 방장이 적용한다. 여기서는 보이기만.
+      this.coop.sendHit(e, base * extra, { element: el, knock: o.knock ?? 20, kx: o.kx, ky: o.ky, crit, status: o.status });
+      e.flash = 0.12;
+      e.hpBarT = 3;
+      this.text(e.x + (Math.random() * 8 - 4), e.y - 16 * e.scale - 6, dmg + (crit ? '!' : ''), crit ? '#ffd23e' : '#ffffff', crit || dmg > 80);
+      if (!o.silentHitstop) { sfx(crit ? 'crit' : 'hit'); this.hitstop = Math.max(this.hitstop, (o.hitstop ?? 0.04)); }
+      for (let i = 0; i < 4; i++) this.parts.push({ x: e.x, y: e.y - 8 * e.scale, z: 0, vx: Math.random() * 120 - 60, vy: Math.random() * 120 - 70, vz: 0, life: 0.25, max: 0.25, color: '#fdf7ed', size: 1, kind: 'spark', grav: 200 });
+      return;
+    }
     e.hp -= dmg;
     e.dmgTaken += dmg;
     e.flash = 0.12;
@@ -1196,6 +1286,11 @@ export class Game {
   }
 
   applyStatus(a: Actor, s: StatusId, t: number, dps?: number): void {
+    if (a instanceof Enemy && a.remote) {
+      this.coop.sendStatus(a, s, t, dps);
+      a.status[s] = { t: Math.min(t, 0.5) };
+      return;
+    }
     if (a instanceof Enemy && a.boss && (s === 'stun' || s === 'root')) t *= 0.4;
     if (a instanceof Enemy && s === 'poison' && a.d.resist?.includes('poison')) return;
     const cur = a.status[s];
@@ -1208,7 +1303,7 @@ export class Game {
     for (const k of Object.keys(a.status) as StatusId[]) {
       const st = a.status[k]!;
       st.t -= dt;
-      if (st.dps) {
+      if (st.dps && !(a instanceof Enemy && a.remote)) {
         st.tick = (st.tick ?? 0.5) - dt;
         if (st.tick <= 0) {
           st.tick = 0.5;
@@ -1305,8 +1400,10 @@ export class Game {
     this.loadMap(HOME[this.hero.race].map, 'statue');
   }
 
-  killEnemy(e: Enemy): void {
+  /** fromNet: 방장이 알려 준 처치 (참가자 쪽) */
+  killEnemy(e: Enemy, fromNet = false): void {
     if (e.dead) return;
+    if (!fromNet && this.coop.role === 'host') this.coop.sendKill(e);
     e.dead = true;
     e.deathT = 0;
     e.hp = 0;
@@ -1332,7 +1429,7 @@ export class Game {
     if (Math.random() < 0.08) this.dropAt(e.x, e.y, { kind: 'use', amount: 1, id: Math.random() < 0.6 ? 'hp_s' : 'mp_s' });
     // 퀘스트
     this.onKill(e.d.id);
-    if (e.spawn?.respawn) this.respawns.push({ def: e.spawn, t: e.spawn.respawn });
+    if (e.spawn?.respawn && !e.remote) this.respawns.push({ def: e.spawn, t: e.spawn.respawn });
     if (e.boss) this.bossKilled(e);
     if (this.p.target === e) this.p.target = this.nextTarget();
     this.ui.hudDirty();
@@ -1482,7 +1579,9 @@ export class Game {
       if (g === 9 /* Wall */ || g === 10 || this.map.solid[this.map.idx(tx, ty)] && this.map.objects.length && pr.kind !== 'axe' && this.solidTall(tx, ty)) {
         pr.life = 0;
       }
-      if (pr.team === 'player') {
+      if ((pr as any).visual) {
+        // 다른 플레이어의 투사체: 날아가는 모습만
+      } else if (pr.team === 'player') {
         for (const e of this.enemies) {
           if (e.dead || pr.hit.has(e)) continue;
           if (Math.hypot(e.x - pr.x, e.y - 7 * e.scale - pr.y) < e.r + pr.r + (e.boss ? 6 : 0)) {
@@ -1498,7 +1597,7 @@ export class Game {
         if (this.hurtPlayer(pr.dmg, { element: pr.element, from: { x: pr.x - pr.vx * 0.05, y: pr.y - pr.vy * 0.05 }, knock: pr.knock, status: pr.status, owner: pr.owner as Enemy })) pr.life = 0;
         else if (p.block > 0) pr.life = 0;
       }
-      if (pr.life <= 0) {
+      if (pr.life <= 0 && !(pr as any).visual) {
         if (pr.explode) {
           this.explosion(pr.x, pr.y + 6, pr.explode, pr.element === 'fire' ? 'fire' : 'dark');
           this.hazards.push({ x: pr.x, y: pr.y + 6, shape: { k: 'circle', r: pr.explode }, t: 0, total: 0, team: pr.team, dmg: pr.dmg, element: pr.element, status: pr.status, knock: 50, silent: true, magic: pr.magic });
@@ -1544,6 +1643,7 @@ export class Game {
       if (h.t > 0) continue;
       if ((h as any).fake) continue;
       // 발동
+      if (h.team === 'player' && h.fx && !(h as any).remote) this.coop.sendFx(h.fx, h.x, h.y, (h.shape as any).ang ?? 0, (h.shape as any).r ?? 24);
       if (h.fx === 'meteor') { this.explosion(h.x, h.y, 22, 'fire'); this.shake(3); }
       else if (h.fx === 'thorn') { this.thornFx(h.x, h.y); this.shake(2); }
       else if (h.fx === 'boom') { this.explosion(h.x, h.y, (h.shape as any).r ?? 24, 'fire'); this.shake(4); }

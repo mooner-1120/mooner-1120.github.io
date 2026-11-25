@@ -73,6 +73,8 @@ export function renderGame(g: Game): void {
   for (const e of g.enemies) if (inView(e.x, e.y)) list.push({ y: e.y, draw: () => drawEnemy(g, e) });
   // 플레이어
   list.push({ y: g.p.y, draw: () => drawPlayer(g) });
+  // 같은 지역의 다른 플레이어 (멀티)
+  for (const r of g.coop.othersHere()) if (inView(r.x, r.y)) list.push({ y: r.y, draw: () => drawOther(g, r) });
   list.sort((a, b) => a.y - b.y);
   for (const d of list) d.draw();
 
@@ -175,6 +177,12 @@ export function renderGame(g: Game): void {
       const bob = Math.round(Math.sin(g.time * 5) * 2 * fsU);
       outlineText(ctx, mk, x, y - 13 * fsU + bob, `bold ${22 * fsU}px Galmuri11`, mk === '!' ? '#ffd23e' : '#7fe3ff', fsU * 2);
     }
+  }
+  // 다른 플레이어 이름
+  for (const r of g.coop.othersHere()) {
+    if (!inView(r.x, r.y)) continue;
+    const [x, y] = toS(r.x, r.y - 34);
+    outlineText(ctx, `${r.name} Lv.${r.level}`, x, y, `${11 * fsU}px Galmuri11`, '#7fe3ff', fsU);
   }
   // 마우스 올린 적 이름
   if (!g.touch) {
@@ -619,4 +627,35 @@ function arrowShape(w: CanvasRenderingContext2D, x: number, y: number, ang: numb
   w.fillStyle = hi;
   w.fillRect(-5, -1, 5, 1);
   w.restore();
+}
+
+/** 다른 플레이어 그리기 (멀티) */
+function drawOther(g: Game, r: import('./coop').Remote): void {
+  const w = g.wctx;
+  const fr = anim(r.sprite, r.moving ? 'run' : 'idle');
+  const f = fr.length ? fr[Math.floor(r.animT * (r.moving ? 11 : 6)) % fr.length] : r.sprite + '_idle_anim_f0';
+  if (r.dead) {
+    drawRotated(w, f, r.x, r.y - 3, r.flip ? -Math.PI / 2 : Math.PI / 2, 0.5, 0.9);
+    return;
+  }
+  shadow(w, r.x, r.y, 6);
+  drawFrame(w, f, r.x, r.y, { flip: r.flip });
+  if (r.weapon) {
+    const hx = r.x + (r.flip ? -4 : 4), hy = r.y - 7;
+    let ang = r.flip ? -0.5 : 0.5;
+    if (r.swing >= 0) {
+      const dir = Math.cos(r.aim) < 0 ? -1 : 1;
+      ang = r.aim + Math.PI / 2 + dir * (-1.5 + 3.0 * (1 - Math.pow(1 - r.swing, 3)));
+    }
+    if (r.weapon.includes('bow')) drawRotated(w, r.weapon, r.x + Math.cos(r.aim) * 5, r.y - 9 + Math.sin(r.aim) * 4, r.swing >= 0 ? r.aim : r.flip ? Math.PI : 0, 0.5, 0.5);
+    else drawRotated(w, r.weapon, hx, hy, ang, 0.5, 0.92);
+  }
+  // 머리 위 체력 막대
+  const bw = 14, x = Math.round(r.x - bw / 2), y = Math.round(r.y - 31);
+  w.fillStyle = '#222';
+  w.fillRect(x - 1, y - 1, bw + 2, 4);
+  w.fillStyle = '#1d3a2a';
+  w.fillRect(x, y, bw, 2);
+  w.fillStyle = '#5ee06a';
+  w.fillRect(x, y, Math.max(0, Math.round((bw * r.hp) / Math.max(1, r.maxHp))), 2);
 }

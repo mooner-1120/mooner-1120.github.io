@@ -10,7 +10,7 @@ import {
   addToInv, baseOf, canEquip, countOf, Hero, InvEntry, itemName, itemPrice, itemTooltip, makeItem, rollRarity, slotFor, entryIcon,
 } from './items';
 import { greeting, priceMul, QUESTS } from './quests';
-import { HEALERS, SHOP_KIND, SHOP_TITLE, SMITHS } from './homes';
+import { HEALERS, MAP_NAME, SHOP_KIND, SHOP_TITLE, SMITHS } from './homes';
 import { actionFor, keyOf } from './keys';
 import { helpHtml, renderSettings } from './settings';
 
@@ -63,7 +63,7 @@ export class UI implements UIHooks {
         <div id="money"><span>${''}</span></div>
         <div id="topright">
           <div id="menubtns">
-            <button data-m="inv" title="가방 (Tab/I)">가방</button><button data-m="stat" title="능력치 (C)">능력치</button><button data-m="skill" title="스킬 (K)">스킬</button><button data-m="quest" title="퀘스트 (J)">퀘스트</button><button data-m="settings" title="설정 (키 바꾸기)">⚙</button><button data-m="pause" title="메뉴 (Esc)">≡</button>
+            <button data-m="inv" title="가방 (Tab/I)">가방</button><button data-m="stat" title="능력치 (C)">능력치</button><button data-m="skill" title="스킬 (K)">스킬</button><button data-m="quest" title="퀘스트 (J)">퀘스트</button><button data-m="party" title="함께하기 (멀티플레이)">파티</button><button data-m="settings" title="설정 (키 바꾸기)">⚙</button><button data-m="pause" title="메뉴 (Esc)">≡</button>
           </div>
           <canvas id="minimap" width="140" height="100"></canvas>
           <div id="region"></div>
@@ -73,6 +73,8 @@ export class UI implements UIHooks {
         <div id="skillbar"></div>
         <div id="xpbar"><i></i></div>
         <div id="pointsAlert" class="hidden"></div>
+        <div id="party"></div>
+        <div id="chat"><div id="chatlog"></div><input id="chatin" maxlength="120" placeholder="Enter로 채팅 · Esc 취소" class="hidden"></div>
       </div>
       <div id="toasts"></div>
       <div id="bigmsg"></div>
@@ -86,6 +88,7 @@ export class UI implements UIHooks {
         const m = b.dataset.m!;
         if (m === 'pause') this.openPause();
         else if (m === 'settings') this.openSettings();
+        else if (m === 'party') this.openParty();
         else this.openMenu(m);
       }),
     );
@@ -102,6 +105,14 @@ export class UI implements UIHooks {
 
   attach(g: Game): void {
     this.g = g;
+    g.coop.onChange = () => { this.refreshParty(); if (this.modal === 'party') this.openParty(); };
+    const inp = $<HTMLInputElement>('#chatin');
+    inp.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { g.coop.chat(inp.value); inp.value = ''; inp.blur(); inp.classList.add('hidden'); }
+      else if (e.key === 'Escape') { inp.value = ''; inp.blur(); inp.classList.add('hidden'); }
+    };
+    this.refreshParty();
     this.buildSkillbar();
     this.miniMap = '';
     this.dirty = true;
@@ -121,6 +132,13 @@ export class UI implements UIHooks {
     if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
     const c = e.code;
     if (this.modal === 'talk' && (c === 'Space' || c === 'Enter' || c === 'KeyF')) { e.preventDefault(); this.advanceTalk(); return; }
+    if (c === 'Enter' && !this.modal && this.g.coop.on) {
+      e.preventDefault();
+      const inp = $<HTMLInputElement>('#chatin');
+      inp.classList.remove('hidden');
+      inp.focus();
+      return;
+    }
     if (c === 'Escape') {
       e.preventDefault();
       if (this.modal && this.modal !== 'death') this.closeModal();
@@ -728,6 +746,69 @@ export class UI implements UIHooks {
     $('#pQuit').onclick = () => { this.g.saveHero(); this.save(); this.closeModal(); this.onQuit(); };
   }
 
+  // ── 파티 (멀티플레이) ───────────────────────────────────────────
+  openParty(msg = ''): void {
+    const c = this.g.coop;
+    const isArtifact = /claude\.ai|claudeusercontent/.test(location.hostname);
+    let body = '';
+    if (!c.on) {
+      body = `
+        <p>친구와 같은 세상에서 함께 모험합니다 (최대 4명).<br><span class="dim small">방장과 같은 지역에 있으면 몬스터를 함께 잡고, 처치 경험치·퀘스트 진행·전리품은 그 자리에 있는 모두가 각자 받습니다. 다른 지역에 가면 그곳에서는 각자 플레이합니다.</span></p>
+        ${isArtifact ? '<p class="warn">이 페이지(claude.ai 미리보기)에서는 멀티플레이 연결이 막혀 있습니다. 공개 주소 mooner-1120.github.io/rpg_game 에서 열어 주세요.</p>' : ''}
+        <div class="prow"><button class="btn big" id="pHost">방 만들기</button></div>
+        <div class="prow"><input id="pCode" maxlength="5" placeholder="참가 코드 5자리" autocomplete="off"><button class="btn big" id="pJoin">참가하기</button></div>`;
+    } else {
+      const list = [`<li><b>${esc(this.hero.name)}</b> Lv.${this.hero.level} (나${c.role === 'host' ? ' · 방장' : ''})</li>`]
+        .concat([...c.players.values()].map((p) => `<li><b>${esc(p.name)}</b> Lv.${p.level} <span class="dim">· ${esc(MAP_NAME[p.map] ?? p.map)}</span></li>`));
+      body = `
+        ${c.role === 'host' ? `<p>친구에게 이 코드를 알려 주세요</p><div class="bigcode">${c.code}</div>` : `<p>방 <b>${c.code}</b> 에 참가 중</p>`}
+        <ul class="plist">${list.join('')}</ul>
+        <p class="dim small">Enter 키로 채팅할 수 있습니다.${c.role === 'guest' ? ' 방장과 같은 지역에 가야 몬스터를 함께 잡습니다.' : ''}</p>
+        <button class="btn" id="pLeave">${c.role === 'host' ? '방 닫기' : '방 나가기'}</button>`;
+    }
+    this.openModal('party', `
+      <div class="panel center partyp">
+        <h2>함께하기</h2>
+        ${msg ? `<p class="warn">${esc(msg)}</p>` : ''}
+        ${body}
+        <button class="btn" id="pClose">닫기</button>
+      </div>`);
+    const q = (s: string) => document.getElementById(s);
+    q('pClose')!.onclick = () => this.closeModal();
+    const busy = (b: HTMLElement) => { b.textContent = '연결 중…'; (b as HTMLButtonElement).disabled = true; };
+    if (q('pHost')) q('pHost')!.onclick = async () => {
+      busy(q('pHost')!);
+      try { await c.host(); this.openParty(); } catch (e) { this.openParty((e as Error).message); }
+    };
+    if (q('pJoin')) {
+      const inp = q('pCode') as HTMLInputElement;
+      inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') q('pJoin')!.click(); };
+      q('pJoin')!.onclick = async () => {
+        const code = inp.value.trim().toUpperCase();
+        if (code.length < 5) { this.openParty('참가 코드 5자리를 입력해 주세요.'); return; }
+        busy(q('pJoin')!);
+        try { await c.join(code); this.openParty(); } catch (e) { this.openParty((e as Error).message); }
+      };
+      setTimeout(() => inp.focus(), 50);
+    }
+    if (q('pLeave')) q('pLeave')!.onclick = () => { c.leave(c.role === 'host' ? '방을 닫았습니다.' : '방에서 나왔습니다.'); this.openParty(); };
+  }
+
+  refreshParty(): void {
+    const c = this.g.coop;
+    const el = $('#party');
+    if (!c.on) { el.innerHTML = ''; } else {
+      el.innerHTML = [...c.players.values()].map((p) => `
+        <div class="pm ${p.map === this.g.map.id ? '' : 'far'}"><span>${esc(p.name)} <i>Lv.${p.level}</i></span>
+        <div class="pbar"><i style="width:${Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100))}%"></i></div>
+        ${p.map === this.g.map.id ? '' : `<span class="dim small">${esc(MAP_NAME[p.map] ?? '')}</span>`}</div>`).join('');
+    }
+    const log = $('#chatlog');
+    log.innerHTML = c.chatLog.slice(-6).map((m) => `<div class="cl ${m.name === '알림' ? 'sys' : ''}"><b>${esc(m.name)}</b> ${esc(m.text)}</div>`).join('');
+    const pb = document.querySelector<HTMLElement>('#menubtns [data-m="party"]');
+    if (pb) pb.classList.toggle('on', c.on);
+  }
+
   openSettings(): void {
     this.openModal('settings', '');
     renderSettings($('#modal'), () => this.closeModal(), () => this.buildSkillbar());
@@ -811,6 +892,7 @@ export class UI implements UIHooks {
     // 미니맵 (10fps)
     if (((g.time * 10) | 0) !== (this as any)._mmT) { (this as any)._mmT = (g.time * 10) | 0; this.drawMinimap(); }
     if (this.dirty) { this.dirty = false; this.refreshHud(); }
+    if (g.coop.on && ((g.time * 2) | 0) !== (this as any)._ptT) { (this as any)._ptT = (g.time * 2) | 0; this.refreshParty(); }
     else if (((g.time * 4) | 0) !== (this as any)._bfT) { (this as any)._bfT = (g.time * 4) | 0; this.refreshBuffs(); }
   }
 

@@ -101,8 +101,16 @@ export class Player extends Actor {
 
 export type EState = 'idle' | 'patrol' | 'chase' | 'windup' | 'attack' | 'recover' | 'retreat' | 'return' | 'charge' | 'dying';
 
+let nidSeq = 1;
+
 export class Enemy extends Actor {
   d: EnemyData;
+  /** 멀티플레이에서 몬스터를 가리키는 번호 */
+  nid = nidSeq++;
+  /** 방장 컴퓨터가 움직이는 몬스터의 모습만 받아 그리는 중 */
+  remote = false;
+  rx = 0;
+  ry = 0;
   state: EState = 'idle';
   stT = 0;
   homeX: number;
