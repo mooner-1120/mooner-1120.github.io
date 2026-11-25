@@ -6,8 +6,10 @@ import { CLASSES, ClassId, RACES, RaceId, STAT_NAMES, StatKey, BASE_BY_ID } from
 import { Game } from './game';
 import { newHero } from './items';
 import { QUESTS } from './quests';
+import { loadKeys } from './keys';
+import { renderSettings } from './settings';
 import { HOME, MAP_NAME } from './homes';
-import { deleteSlot, fmtTime, HELP_HTML, loadSettings, loadSlot, SKILL_ICONS, RACE_ICONS, UI } from './ui';
+import { deleteSlot, fmtTime, helpHtml, loadSettings, loadSlot, SKILL_ICONS, RACE_ICONS, UI } from './ui';
 
 const app = document.getElementById('app')!;
 app.innerHTML = `<canvas id="game"></canvas><div id="ui"></div><div id="loading">불러오는 중…</div>`;
@@ -20,6 +22,7 @@ let game: Game;
 async function boot() {
   await loadAssets();
   loadSettings();
+  loadKeys();
   document.getElementById('loading')!.remove();
   ui = new UI(document.getElementById('ui')!);
   game = new Game(document.getElementById('game') as HTMLCanvasElement, ui);
@@ -65,6 +68,7 @@ function title() {
         <button class="btn big" id="tNew">새 게임</button>
         <button class="btn big" id="tLoad">이어하기</button>
         <button class="btn" id="tHelp">조작법</button>
+        <button class="btn" id="tSet">설정 (키 바꾸기)</button>
       </div>
       <div class="credit">그래픽: 0x72 DungeonTileset II (CC0) + 같은 스타일로 직접 그린 스프라이트 · 글꼴: Galmuri (OFL)</div>
     </div>`;
@@ -73,11 +77,15 @@ function title() {
   document.getElementById('tNew')!.onclick = go(() => slots('new'));
   document.getElementById('tLoad')!.onclick = go(() => slots('load'));
   document.getElementById('tHelp')!.onclick = go(help);
+  document.getElementById('tSet')!.onclick = go(() => {
+    screen().className = 'on';
+    renderSettings(screen(), () => title());
+  });
 }
 
 function help() {
   screen().className = 'on';
-  screen().innerHTML = `<div class="panel center help2"><h2>조작법</h2>${HELP_HTML}<button class="btn big" id="back">돌아가기</button></div>`;
+  screen().innerHTML = `<div class="panel center help2"><h2>조작법</h2>${helpHtml()}<button class="btn big" id="back">돌아가기</button></div>`;
   document.getElementById('back')!.onclick = () => { sfx('ui'); title(); };
 }
 

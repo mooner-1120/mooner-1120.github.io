@@ -68,6 +68,8 @@ export class Player extends Actor {
   path: [number, number][] = [];
   target: Enemy | NpcEnt | null = null;
   moveGoal: [number, number] | null = null;
+  /** 키보드 전투에서 '인식'한 적 (공격 키를 누르면 이 적을 친다) */
+  lock: Enemy | null = null;
   holdDir: [number, number] | null = null;
   atkT = 0; // 다음 공격까지
   swingT = 0; // 휘두르는 그림 진행

@@ -14,6 +14,7 @@ import { updateEnemy } from './ai';
 import { renderGame } from './render';
 import { RARITY } from './data';
 import { anim } from './assets';
+import { actionFor, settings as keySettings, shouldPrevent, ActionId } from './keys';
 import { HOME, MAP_NAME, NPC_MAP, NPC_NAME, resolveNpc } from './homes';
 
 export interface UIHooks {
@@ -62,7 +63,9 @@ export class Game {
   fade = 0;
   fadeTo: (() => void) | null = null;
   mouse = { sx: 0, sy: 0, wx: 0, wy: 0, down: false, downT: 0, moved: false };
-  keys = new Set<string>();
+  moveKeys = new Set<string>();
+  /** 마지막 조작이 키보드였나 — 그렇다면 스킬을 인식한 적에게 조준한다 */
+  kbAim = false;
   running = false;
   last = 0;
   boss: Enemy | null = null;
@@ -127,6 +130,7 @@ export class Game {
       this.clickAt(this.mouse.wx, this.mouse.wy);
     });
     this.cv.addEventListener('pointermove', (e) => {
+      if (Math.abs(e.clientX - this.mouse.sx) + Math.abs(e.clientY - this.mouse.sy) > 3) this.kbAim = false;
       this.mouse.sx = e.clientX;
       this.mouse.sy = e.clientY;
       this.mouse.moved = true;
@@ -142,26 +146,38 @@ export class Game {
     window.addEventListener('keydown', (e) => {
       if (!this.running) return;
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
-      const k = e.key.toLowerCase();
       if (this.ui.modalOpen()) return;
-      if (e.repeat && k !== ' ') return;
+      const act = actionFor(e.code);
+      if (!act) return;
+      if (shouldPrevent(e.code)) e.preventDefault();
       this.touch = false;
-      this.keys.add(k);
-      const code = e.code;
-      if (code === 'KeyQ') this.castSkill(0);
-      else if (code === 'KeyW') this.castSkill(1);
-      else if (code === 'KeyE') this.castSkill(2);
-      else if (code === 'KeyR') this.castSkill(3);
-      else if (code === 'KeyT') this.raceSkill();
-      else if (code === 'Space') { e.preventDefault(); this.doRoll(); }
-      else if (code === 'Digit1') this.useQuick(0);
-      else if (code === 'Digit2') this.useQuick(1);
-      else if (code === 'Digit3') this.useQuick(2);
-      else if (code === 'KeyF') this.interact();
-      else if (code === 'KeyS') this.stopAll();
+      if (act === 'up' || act === 'down' || act === 'left' || act === 'right') {
+        this.moveKeys.add(act);
+        this.kbAim = true;
+        return;
+      }
+      if (e.repeat && act !== 'roll' && act !== 'attack') return;
+      switch (act as ActionId) {
+        case 'skill1': this.castSkill(0); break;
+        case 'skill2': this.castSkill(1); break;
+        case 'skill3': this.castSkill(2); break;
+        case 'skill4': this.castSkill(3); break;
+        case 'race': this.raceSkill(); break;
+        case 'roll': this.doRoll(); break;
+        case 'item1': this.useQuick(0); break;
+        case 'item2': this.useQuick(1); break;
+        case 'item3': this.useQuick(2); break;
+        case 'interact': this.interact(); break;
+        case 'stop': this.stopAll(); break;
+        case 'attack': this.attackKey(); break;
+        case 'nextTarget': this.cycleTarget(); break;
+      }
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
-    window.addEventListener('blur', () => { this.keys.clear(); this.mouse.down = false; });
+    window.addEventListener('keyup', (e) => {
+      const act = actionFor(e.code);
+      if (act) this.moveKeys.delete(act);
+    });
+    window.addEventListener('blur', () => { this.moveKeys.clear(); this.mouse.down = false; });
     // 마우스 움직임을 월드 좌표로 계속 갱신 (카메라가 움직여도)
     setInterval(() => this.running && toWorld(), 50);
   }
@@ -551,6 +567,7 @@ export class Game {
       p.kbx *= Math.pow(0.002, dt);
       p.kby *= Math.pow(0.002, dt);
     }
+    this.updateLock();
     if (!p.canAct) return;
 
     // 목표 처리
@@ -590,7 +607,14 @@ export class Game {
       this.openChest(cg);
     }
 
-    if (p.holdDir && !(p.target instanceof Enemy)) {
+    const kd = this.keyDir();
+    if (kd) {
+      // 방향키 이동: 클릭 이동과 자동 추격을 멈추고 직접 움직인다
+      mvx = kd[0];
+      mvy = kd[1];
+      p.path = [];
+      if (p.target instanceof Enemy) p.target = null;
+    } else if (p.holdDir && !(p.target instanceof Enemy)) {
       mvx = p.holdDir[0];
       mvy = p.holdDir[1];
     } else if (p.path.length) {
@@ -661,12 +685,63 @@ export class Game {
     return fr[Math.floor(p.animT * (kind === 'run' ? 12 : 6)) % fr.length];
   }
 
+  // ── 키보드 이동 · 적 인식 ───────────────────────────────────────
+  keyDir(): [number, number] | null {
+    const k = this.moveKeys;
+    const x = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0);
+    const y = (k.has('down') ? 1 : 0) - (k.has('up') ? 1 : 0);
+    if (!x && !y) return null;
+    const d = Math.hypot(x, y);
+    return [x / d, y / d];
+  }
+
+  /** 인식 가능한 적: 가까운 순서 */
+  lockCandidates(range = 170): Enemy[] {
+    const p = this.p;
+    return this.enemies
+      .filter((e) => !e.dead && DIST(e, p) < range && this.map.los(p.x, p.y - 8, e.x, e.y - 8))
+      .sort((a, b) => DIST(a, p) - DIST(b, p));
+  }
+
+  updateLock(): void {
+    const p = this.p;
+    if (p.lock && (p.lock.dead || DIST(p.lock, p) > 200)) p.lock = null;
+    if (p.target instanceof Enemy && !p.target.dead) p.lock = p.target;
+    if (!p.lock && keySettings.autoTarget) p.lock = this.lockCandidates(140)[0] ?? null;
+  }
+
+  /** 공격 키: 인식한 적(없으면 가장 가까운 적)을 쫓아가 공격 */
+  attackKey(): void {
+    const p = this.p;
+    if (!p || p.dead) return;
+    this.kbAim = true;
+    let t = p.lock && !p.lock.dead ? p.lock : null;
+    if (!t) t = this.lockCandidates()[0] ?? null;
+    if (!t) { this.ui.toast('주변에 공격할 적이 없다', '#ff9'); return; }
+    p.lock = t;
+    p.target = t;
+    p.path = [];
+  }
+
+  /** 다른 적 인식: 가까운 순서로 돌아가며 바꾼다 */
+  cycleTarget(): void {
+    const p = this.p;
+    if (!p || p.dead) return;
+    this.kbAim = true;
+    const list = this.lockCandidates();
+    if (!list.length) { p.lock = null; this.ui.toast('주변에 인식할 적이 없다', '#ff9'); return; }
+    const i = p.lock ? list.indexOf(p.lock) : -1;
+    p.lock = list[(i + 1) % list.length];
+    if (p.target instanceof Enemy) p.target = p.lock;
+    sfx('ui');
+  }
+
   // ── 공격 ────────────────────────────────────────────────────────
   aimPoint(range = 200): [number, number] {
     const p = this.p;
-    if (!this.touch) return [this.mouse.wx, this.mouse.wy];
-    // 터치: 현재 대상 → 가장 가까운 적 → 바라보는 방향
-    let t: Enemy | null = p.target instanceof Enemy && !p.target.dead ? p.target : null;
+    if (!this.touch && !this.kbAim) return [this.mouse.wx, this.mouse.wy];
+    // 터치·키보드: 현재 대상 → 인식한 적 → 가장 가까운 적 → 바라보는 방향
+    let t: Enemy | null = p.target instanceof Enemy && !p.target.dead ? p.target : p.lock && !p.lock.dead ? p.lock : null;
     if (!t) {
       let bd = range;
       for (const e of this.enemies) if (!e.dead && DIST(e, p) < bd) { bd = DIST(e, p); t = e; }
@@ -1010,8 +1085,10 @@ export class Game {
     if (p.st < 25) { this.ui.toast('스태미나가 부족하다', '#ffd36a'); sfx('deny'); return; }
     p.st -= 25;
     p.stRegenDelay = 0.6;
-    const [ax, ay] = this.touch ? [p.x + (p.flip ? -1 : 1) * 40, p.y] : [this.mouse.wx, this.mouse.wy];
+    const [ax, ay] = this.touch || this.kbAim ? [p.x + (p.flip ? -1 : 1) * 40, p.y] : [this.mouse.wx, this.mouse.wy];
     let dx = ax - p.x, dy = ay - p.y;
+    const kd = this.keyDir();
+    if (kd) { dx = kd[0]; dy = kd[1]; }
     if (this.touch && p.path.length) { dx = p.path[0][0] - p.x; dy = p.path[0][1] - p.y; }
     const d = Math.hypot(dx, dy) || 1;
     p.roll = { t: 0.3, dx: dx / d, dy: dy / d };

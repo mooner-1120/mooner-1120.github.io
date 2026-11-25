@@ -290,6 +290,19 @@ function drawEnemy(g: Game, e: Enemy): void {
     w.fillRect(Math.round(e.x - 4), Math.round(e.y - 4), 1, 3);
     w.fillRect(Math.round(e.x + 3), Math.round(e.y - 4), 1, 3);
   }
+  // 인식 표시 (키보드 전투): 청록색 모서리 괄호
+  if (g.p.lock === e && g.p.target !== e) {
+    w.fillStyle = '#7fe3ff';
+    const h = (frame(f)?.[3] ?? 16) * e.scale;
+    const x0 = Math.round(e.x - Math.max(7, e.r + 2)), x1 = Math.round(e.x + Math.max(7, e.r + 2));
+    const y0 = Math.round(e.y - h - 2), y1 = Math.round(e.y + 2);
+    const pulse = Math.floor(g.time * 4) % 2;
+    for (const [x, sx] of [[x0 - pulse, 1], [x1 + pulse, -1]] as const)
+      for (const [y, sy] of [[y0 - pulse, 1], [y1 + pulse, -1]] as const) { w.fillRect(x, y, 1, 1); w.fillRect(x + sx, y, 3 * sx, 1); w.fillRect(x, y + sy, 1, 3 * sy); }
+    // 머리 위 작은 청록 삼각형
+    const tx = Math.round(e.x), ty = y0 - 4 - pulse;
+    w.fillRect(tx - 2, ty - 2, 5, 1); w.fillRect(tx - 1, ty - 1, 3, 1); w.fillRect(tx, ty, 1, 1);
+  }
   // 대상 표시
   if (g.p.target === e) {
     w.fillStyle = '#ff5050';
@@ -542,6 +555,9 @@ function drawGuide(g: Game, w: CanvasRenderingContext2D, cx: number, cy: number)
   const inside = sx > 10 && sx < vw - 10 && sy > 22 && sy < vh - 10;
   w.save();
   w.setTransform(1, 0, 0, 1, 0, 0);
+  // 인식한 적이 곧 목표면 길안내 화살표는 생략 (표시가 겹치지 않게)
+  const lk = g.p.lock;
+  if (inside && lk && !lk.dead && Math.hypot(lk.x - t.x, lk.y - 6 - t.y) < 14) { w.restore(); return null; }
   if (inside && dist > 1) {
     // 목표 머리 위에서 통통 튀는 아래 화살표
     const bob = Math.round(Math.abs(Math.sin(g.time * 4)) * 4);

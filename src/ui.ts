@@ -11,6 +11,8 @@ import {
 } from './items';
 import { greeting, priceMul, QUESTS } from './quests';
 import { HEALERS, SHOP_KIND, SHOP_TITLE, SMITHS } from './homes';
+import { actionFor, keyOf } from './keys';
+import { helpHtml, renderSettings } from './settings';
 
 export const SKILL_ICONS: Record<string, string> = {
   block: 'i_shield_iron', dash_slash: 'weapon_regular_sword', war_cry: 'i_helm_iron', earth_split: 'weapon_big_hammer',
@@ -61,7 +63,7 @@ export class UI implements UIHooks {
         <div id="money"><span>${''}</span></div>
         <div id="topright">
           <div id="menubtns">
-            <button data-m="inv" title="가방 (Tab/I)">가방</button><button data-m="stat" title="능력치 (C)">능력치</button><button data-m="skill" title="스킬 (K)">스킬</button><button data-m="quest" title="퀘스트 (J)">퀘스트</button><button data-m="pause" title="메뉴 (Esc)">≡</button>
+            <button data-m="inv" title="가방 (Tab/I)">가방</button><button data-m="stat" title="능력치 (C)">능력치</button><button data-m="skill" title="스킬 (K)">스킬</button><button data-m="quest" title="퀘스트 (J)">퀘스트</button><button data-m="settings" title="설정 (키 바꾸기)">⚙</button><button data-m="pause" title="메뉴 (Esc)">≡</button>
           </div>
           <canvas id="minimap" width="140" height="100"></canvas>
           <div id="region"></div>
@@ -83,6 +85,7 @@ export class UI implements UIHooks {
         sfx('ui');
         const m = b.dataset.m!;
         if (m === 'pause') this.openPause();
+        else if (m === 'settings') this.openSettings();
         else this.openMenu(m);
       }),
     );
@@ -124,11 +127,12 @@ export class UI implements UIHooks {
       else if (!this.modal) this.openPause();
       return;
     }
-    const map: Record<string, string> = { Tab: 'inv', KeyI: 'inv', KeyC: 'stat', KeyK: 'skill', KeyJ: 'quest' };
-    if (map[c]) {
+    const act = actionFor(c);
+    const tab = act === 'inv' ? 'inv' : act === 'stat' ? 'stat' : act === 'skillWin' ? 'skill' : act === 'quest' ? 'quest' : '';
+    if (tab) {
       e.preventDefault();
-      if (this.modal === 'menu' && this.menuTab === map[c]) this.closeModal();
-      else if (!this.modal || this.modal === 'menu') this.openMenu(map[c]);
+      if (this.modal === 'menu' && this.menuTab === tab) this.closeModal();
+      else if (!this.modal || this.modal === 'menu') this.openMenu(tab);
     }
   }
 
@@ -711,17 +715,19 @@ export class UI implements UIHooks {
         <h2>일시정지</h2>
         <button class="btn big" id="pResume">계속하기</button>
         <button class="btn big" id="pSave">저장하기</button>
-        <div class="vol"><label>효과음 <input type="range" id="vS" min="0" max="1" step="0.05" value="${volume.sfx}"></label>
-        <label>배경음 <input type="range" id="vM" min="0" max="1" step="0.05" value="${volume.music}"></label></div>
-        <div class="help">${HELP_HTML}</div>
+        <button class="btn big" id="pSet">설정 (키 바꾸기 · 소리)</button>
+        <div class="help">${helpHtml()}</div>
         <button class="btn" id="pQuit">저장하고 타이틀로</button>
       </div>`);
     $('#pResume').onclick = () => this.closeModal();
     $('#pSave').onclick = () => { this.g.saveHero(); this.save(); sfx('holy'); this.toast('저장되었다', '#facb3e'); this.closeModal(); };
-    const upd = () => { setVolumes(+$<HTMLInputElement>('#vS').value, +$<HTMLInputElement>('#vM').value); saveSettings(); };
-    $('#vS').oninput = upd;
-    $('#vM').oninput = upd;
+    $('#pSet').onclick = () => { sfx('ui'); this.openSettings(); };
     $('#pQuit').onclick = () => { this.g.saveHero(); this.save(); this.closeModal(); this.onQuit(); };
+  }
+
+  openSettings(): void {
+    this.openModal('settings', '');
+    renderSettings($('#modal'), () => this.closeModal(), () => this.buildSkillbar());
   }
 
   // ── HUD ────────────────────────────────────────────────────────
@@ -730,12 +736,12 @@ export class UI implements UIHooks {
     const c = CLASSES[h.cls];
     const slot = (id: string, key: string, icon: string, title: string) => `<div class="sbtn" data-act="${id}" title="${esc(title)}">${icon ? img(icon, 2) : ''}<i class="cd"></i><b class="key">${key}</b><span class="num"></span></div>`;
     $('#skillbar').innerHTML =
-      slot('roll', 'Space', 'weapon_arrow', '회피 구르기 (스태미나 25, 무적 0.2초)').replace('weapon_arrow', 'weapon_arrow') +
+      slot('roll', keyOf('roll'), 'weapon_arrow', '회피 구르기 (스태미나 25, 무적 0.2초)') +
       '<span class="sep"></span>' +
-      c.skills.map((s, i) => slot('s' + i, s.key, SKILL_ICONS[s.id], `${s.name} — ${s.desc} (MP ${s.mp})`)).join('') +
-      slot('race', 'T', RACE_ICONS[h.race], `${RACES[h.race].active.name} — ${RACES[h.race].active.desc}`) +
+      c.skills.map((s, i) => slot('s' + i, keyOf(('skill' + (i + 1)) as 'skill1'), SKILL_ICONS[s.id], `${s.name} — ${s.desc} (MP ${s.mp})`)).join('') +
+      slot('race', keyOf('race'), RACE_ICONS[h.race], `${RACES[h.race].active.name} — ${RACES[h.race].active.desc}`) +
       '<span class="sep"></span>' +
-      h.quick.map((q, i) => slot('q' + i, String(i + 1), q ? CONSUMABLES[q].icon : '', q ? CONSUMABLES[q].name : '빈 퀵슬롯')).join('');
+      h.quick.map((q, i) => slot('q' + i, keyOf(('item' + (i + 1)) as 'item1'), q ? CONSUMABLES[q].icon : '', q ? CONSUMABLES[q].name : '빈 퀵슬롯')).join('');
     // 구르기 아이콘은 연기 모양으로
     const rb = $('#skillbar [data-act="roll"] img') as HTMLImageElement | null;
     if (rb) rb.src = iconURL('i_boots_leather', 2);
@@ -891,20 +897,7 @@ export class UI implements UIHooks {
   }
 }
 
-export const HELP_HTML = `
-  <table class="keys">
-    <tr><td>좌클릭 (바닥)</td><td>이동 (누르고 있으면 커서 방향으로 계속)</td></tr>
-    <tr><td>좌클릭 (적)</td><td>추적 + 기본 공격 자동 반복</td></tr>
-    <tr><td>좌클릭 (NPC/상자)</td><td>대화 / 열기</td></tr>
-    <tr><td>Space</td><td>회피 구르기 (커서 방향, 무적 0.2초)</td></tr>
-    <tr><td>Q W E R</td><td>클래스 스킬 (커서 위치/방향으로 시전)</td></tr>
-    <tr><td>T</td><td>종족 스킬</td></tr>
-    <tr><td>1 2 3</td><td>소모품 퀵슬롯</td></tr>
-    <tr><td>F</td><td>상호작용 (NPC, 상자, 여신상)</td></tr>
-    <tr><td>Tab · C · K · J</td><td>가방 · 능력치 · 스킬 · 퀘스트</td></tr>
-    <tr><td>S / Esc</td><td>멈추기 / 메뉴</td></tr>
-  </table>
-  <p class="dim small">빨간 범위 표시는 적의 공격 예고입니다. 구르기로 피하세요! 모바일: 화면을 탭해 이동·공격, 아래 버튼으로 스킬(가까운 적 자동 조준).</p>`;
+export { helpHtml } from './settings';
 
 // ── 저장 (localStorage, 3슬롯, JSON) ─────────────────────────────
 const KEY = (i: number) => `ashen_crown_slot_${i}`;
