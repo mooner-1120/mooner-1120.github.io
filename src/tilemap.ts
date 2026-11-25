@@ -330,9 +330,12 @@ export class GameMap {
         if (m) tile('e_shore_' + m);
         break;
       }
-      case T.Ash:
+      case T.Ash: {
         tile(v % 2 ? 't_ash_0' : 't_ash_1');
+        const m = mask((n) => this.isGrassy(n));
+        if (m) tile('e_grass_' + m);
         break;
+      }
       case T.Lava: {
         tile('t_lava_' + (Math.floor(time * 2 + (x * 7 + y) * 0.2) % 3));
         const m = mask((n) => n === T.Ash);

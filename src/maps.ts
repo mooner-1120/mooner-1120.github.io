@@ -419,6 +419,12 @@ export function buildElfHome(): GameMap {
   obj(m, 'o_well', 25, 18, 2, 1);
   for (const [x, y] of [[16, 18], [24, 21], [11, 17]]) obj(m, 'o_bush_1', x, y, 1, 1);
   homeCommon(m, { x: 19, y: 31, w: 3, h: 1 }, [20, 28], [20, 16], '솔라리온 평원', 'elf');
+  // 북쪽 숲길 → 실바넬의 썩은 숲 (2장)
+  m.fillRect(19, 0, 3, 8, T.Dirt);
+  for (let y = 0; y < 9; y++) for (let x = 17; x < 24; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(o.x > 17 * TS && o.x < 24 * TS && o.y < 10 * TS));
+  m.points.north = [px(20), px(3)];
+  m.exits.push({ x: 19, y: 0, w: 3, h: 1, to: 'forest', spawn: 'south', label: '실바넬의 썩은 숲', locked: 'ch1_clear', lockMsg: '숲지기: "북쪽 숲은 썩어 들어가 위험해요. 도적왕 일이 끝나면 장로님께서 부르실 거예요." (1장 클리어 후 개방)' });
   m.npcs.push(
     { id: 'elf_leader', name: '숲의 장로 탈리온', sprite: 'elf_m', x: px(22), y: px(13) },
     { id: 'elf_merchant', name: '약초상 미렐', sprite: 'elf_f', x: px(15), y: px(21) },
@@ -524,7 +530,93 @@ export function buildDemonHome(): GameMap {
   return m;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 2장: 실바넬의 썩은 숲 → 타락한 고목의 심장(보스)
+export function buildForest(): GameMap {
+  const W = 70, H = 58;
+  const m = new GameMap('forest', '실바넬의 썩은 숲', W, H, T.DGrass);
+  m.bgm = 'dungeon';
+  m.dark = true;
+  m.ambient = 'rgba(18,8,28,0.62)';
+  const r = rng(505);
+  // 구불구불한 숲길: 남쪽 입구 → 북쪽 심장부
+  const pts: [number, number][] = [[35, 57], [34, 48], [24, 42], [18, 32], [26, 24], [42, 22], [52, 14], [44, 6], [35, 2], [35, 0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+    const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 2;
+    for (let k = 0; k <= n; k++) m.fillRect(Math.round(ax + ((bx - ax) * k) / n) - 1, Math.round(ay + ((by - ay) * k) / n) - 1, 3, 3, T.Dirt);
+  }
+  // 공터 (전투 구역)
+  const clearings: [number, number, number][] = [[34, 47, 6], [20, 33, 7], [44, 22, 7], [52, 12, 5], [12, 14, 6], [58, 40, 6]];
+  for (const [cx, cy, rr] of clearings)
+    for (let y = cy - rr; y <= cy + rr; y++) for (let x = cx - rr; x <= cx + rr; x++)
+      if (m.inb(x, y) && Math.hypot(x - cx, (y - cy) * 1.2) < rr && m.get(x, y) !== T.Dirt) m.set(x, y, r() < 0.12 ? T.Ash : T.Grass);
+  // 썩은 웅덩이
+  for (const [cx, cy] of [[14, 22], [56, 30], [26, 52]])
+    for (let y = cy - 3; y <= cy + 3; y++) for (let x = cx - 4; x <= cx + 4; x++) if (Math.hypot((x - cx) / 4, (y - cy) / 2.6) < 1) m.set(x, y, T.Water);
+  // 빽빽한 나무
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (m.get(x, y) !== T.DGrass) continue;
+      const near = [-1, 0, 1].some((d) => m.get(x + d, y) === T.Dirt || m.get(x, y + d) === T.Dirt);
+      if (near) continue;
+      if (x < 2 || y < 1 || x >= W - 2 || y >= H - 1 || r() < 0.33) tree(m, x, y, r() < 0.55 ? 3 : r() < 0.5 ? 4 : 2);
+      else if (r() < 0.3) m.solid[m.idx(x, y)] = 1;
+    }
+  // 빛나는 수정 (숲의 정기)
+  for (const [x, y] of [[33, 44], [22, 30], [46, 20], [13, 12], [60, 38]]) m.addObj({ sprite: 'o_crystal', x: px(x), y: foot(y), solid: { w: 1, h: 1 }, light: 60, flip: x % 2 === 0 });
+  for (const [x, y] of [[36, 46], [19, 35], [43, 25], [11, 16]]) obj(m, r() < 0.5 ? 'o_stump' : 'o_bush_1', x, y, 1, 1);
+  m.points.south = [px(35), px(54)];
+  m.points.grove = [px(35), px(4)];
+  m.points.start = m.points.south;
+  m.exits.push({ x: 34, y: 57, w: 3, h: 1, to: 'elfhome', spawn: 'north', label: '실바넬 숲 마을' });
+  m.exits.push({ x: 34, y: 0, w: 3, h: 1, to: 'grove', spawn: 'south', label: '타락한 고목의 심장', locked: 'grove_open', lockMsg: '뒤엉킨 가시덩굴이 길을 막고 있다. 엘프 장로의 정화 의식이 필요하다.' });
+  const zone = (id: string, cx: number, cy: number, n: number, spread = 4) => {
+    for (let i = 0; i < n; i++)
+      for (let k = 0; k < 25; k++) {
+        const x = cx + (r() * 2 - 1) * spread, y = cy + (r() * 2 - 1) * spread;
+        if (!m.blocked(Math.floor(x), Math.floor(y))) { m.spawns.push({ id, x: x * TS + 8, y: y * TS + 8, respawn: 45 }); break; }
+      }
+  };
+  zone('blight_wolf', 34, 46, 3); zone('swampy', 26, 50, 2);
+  zone('pumpkin_dude', 20, 33, 2); zone('muddy', 20, 30, 2); zone('slug', 15, 22, 2);
+  zone('forest_spirit', 44, 22, 3); zone('blight_wolf', 46, 25, 2);
+  zone('forest_spirit', 12, 14, 3); zone('slug', 58, 40, 2); zone('swampy', 58, 36, 2);
+  zone('forest_spirit', 52, 12, 2); zone('pumpkin_dude', 50, 14, 2);
+  m.spawns.push({ id: 'dryad', x: px(58), y: px(40), respawn: 120 });
+  m.chests.push({ x: 12, y: 10, id: 'forest1', tier: 10 }, { x: 61, y: 42, id: 'forest2', tier: 11 });
+  for (const c of m.chests) m.solid[m.idx(c.x, c.y)] = 0;
+  return m;
+}
+
+export function buildGrove(): GameMap {
+  const W = 32, H = 28;
+  const m = new GameMap('grove', '타락한 고목의 심장', W, H, T.DGrass);
+  m.bgm = 'boss';
+  m.dark = true;
+  m.ambient = 'rgba(30,8,36,0.55)';
+  const r = rng(606);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const d = Math.hypot((x - 16) / 13, (y - 13) / 11);
+    if (d < 1) m.set(x, y, r() < 0.18 ? T.Ash : T.Grass);
+    else if (r() < 0.6) tree(m, x, y, r() < 0.5 ? 3 : 4);
+    else m.solid[m.idx(x, y)] = 1;
+  }
+  m.fillRect(15, 22, 3, 6, T.Dirt);
+  for (let y = 22; y < H; y++) for (let x = 14; x < 19; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(o.x > 14 * TS && o.x < 19 * TS && o.y > 22 * TS));
+  for (const [x, y] of [[8, 8], [24, 8], [7, 17], [25, 17]]) m.addObj({ sprite: 'o_crystal', x: px(x), y: foot(y), solid: { w: 1, h: 1 }, light: 70 });
+  m.addObj({ sprite: 'o_tree_dark', x: px(16), y: foot(4), solid: { w: 1, h: 1 } });
+  m.points.south = [px(16), px(24)];
+  m.points.start = m.points.south;
+  m.points.boss = [px(16), px(10)];
+  m.exits.push({ x: 15, y: 27, w: 3, h: 1, to: 'forest', spawn: 'grove', label: '썩은 숲으로 돌아가기' });
+  m.spawns.push({ id: 'forest_lord', x: px(16), y: px(9), tag: 'boss' });
+  return m;
+}
+
 export const MAP_BUILDERS: Record<string, () => GameMap> = {
   village: buildVillage, field: buildField, crypt: buildCrypt, fort: buildFort, rift: buildRift,
   elfhome: buildElfHome, dwarfhome: buildDwarfHome, orchome: buildOrcHome, demonhome: buildDemonHome,
+  forest: buildForest, grove: buildGrove,
 };

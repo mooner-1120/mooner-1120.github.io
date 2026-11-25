@@ -28,7 +28,37 @@ export const NPC_NAME: Record<string, string> = {
 export const MAP_NAME: Record<string, string> = {
   village: '하스벨 마을', field: '솔라리온 평원', crypt: '지하 묘지', fort: '도적단 요새', rift: '균열의 틈',
   elfhome: '실바넬 숲 마을', dwarfhome: '아이언후드 광산 마을', orchome: '붉은 평원 야영지', demonhome: '그림자 은신처',
+  forest: '실바넬의 썩은 숲', grove: '타락한 고목의 심장',
 };
+
+/** 지역 연결 (길안내가 거쳐 갈 지역을 고를 때 쓴다) */
+export const MAP_LINKS: Record<string, string[]> = {
+  field: ['village', 'crypt', 'fort', 'rift', 'elfhome', 'dwarfhome', 'orchome', 'demonhome'],
+  village: ['field'], crypt: ['field'], fort: ['field'], rift: ['field'],
+  elfhome: ['field', 'forest'], dwarfhome: ['field'], orchome: ['field'], demonhome: ['field'],
+  forest: ['elfhome', 'grove'], grove: ['forest'],
+};
+
+/** from 에서 to 로 가려면 다음에 갈 지역 */
+export function nextHop(from: string, to: string): string | null {
+  if (from === to) return null;
+  const prev: Record<string, string> = { [from]: '' };
+  const q = [from];
+  while (q.length) {
+    const c = q.shift()!;
+    for (const n of MAP_LINKS[c] ?? []) {
+      if (n in prev) continue;
+      prev[n] = c;
+      if (n === to) {
+        let step = n;
+        while (prev[step] !== from) step = prev[step];
+        return step;
+      }
+      q.push(n);
+    }
+  }
+  return null;
+}
 
 /** 이 NPC가 여는 상점 종류 */
 export const SHOP_KIND: Record<string, 'potion' | 'general' | 'gear'> = {

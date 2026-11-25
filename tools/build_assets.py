@@ -1058,6 +1058,24 @@ add("fx_ice", ice_shard())
 # ═══════════════════════════════════════════════════════════════════
 # 패킹
 # ═══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# 8) 2장 실바넬의 썩은 숲 — 타락한 늑대, 숲정령, 드라이어드, 타락한 정령(보스)
+# ═══════════════════════════════════════════════════════════════════
+BLIGHT = {"7b8994": "5f2d56", "b6cbcf": "9f294e", "314152": "21141b"}
+for k in ("idle", "run"):
+    for i in range(4):
+        add(f"blight_wolf_{k}_anim_f{i}", recolor(FRAMES[f"wolf_{k}_anim_f{i}"], BLIGHT))
+        add(f"forest_spirit_{k}_anim_f{i}", recolor(FRAMES[f"wogol_{k}_anim_f{i}"], {"da4e38": "4ba747", "9f294e": "3d734f", "5f2d56": "2f5a40", "fdf7ed": "97da3f"}))
+        # 보스: 거대 악마를 이끼·보라 독으로 다시 칠한다
+        add(f"forest_lord_{k}_anim_f{i}", recolor(FRAMES[f"big_demon_{k}_anim_f{i}"], {"da4e38": "3d734f", "9f294e": "5f2d56", "fdf7ed": "97da3f"}))
+DRYAD = {"fccba3": "b6e0a0", "d8a57d": "8cc47a", "e2b694": "a2d48c", "c38d70": "6aa35c",
+         "facb3e": "c37bff", "ee8e2e": "8a4fc0", "c56025": "5f2d56", "4ba747": "49a790", "3d734f": "2f6a5a", "97da3f": "72d6ce",
+         "5698cc": "dc4a7b", "417089": "9f294e"}
+for n in anim_names("elf_f"):
+    if n in FRAMES:
+        add(n.replace("elf_f", "dryad"), recolor(FRAMES[n], DRYAD))
+
+
 def pack(frames, width=1024):
     items = sorted(frames.items(), key=lambda kv: (-kv[1].height, kv[0]))
     x = y = 0

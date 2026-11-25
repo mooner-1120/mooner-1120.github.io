@@ -15,7 +15,7 @@ import { renderGame } from './render';
 import { RARITY } from './data';
 import { anim } from './assets';
 import { actionFor, settings as keySettings, shouldPrevent, ActionId } from './keys';
-import { HOME, MAP_NAME, NPC_MAP, NPC_NAME, resolveNpc } from './homes';
+import { HOME, MAP_NAME, NPC_MAP, NPC_NAME, nextHop, resolveNpc } from './homes';
 
 export interface UIHooks {
   toast(msg: string, color?: string): void;
@@ -26,7 +26,7 @@ export interface UIHooks {
   save(): void;
   bossBar(e: Enemy | null): void;
   modalOpen(): boolean;
-  showChapterClear(): void;
+  showChapterClear(chapter: number): void;
   questUpdate(): void;
 }
 
@@ -288,6 +288,7 @@ export class Game {
     this.loadMap(hero.map, hero.x >= 0 ? [hero.x, hero.y] : 'start');
     this.running = true;
     if (!this.hero.quests.length) this.startQuest('main1', true);
+    if (this.qs('main3')?.done && !this.qs('c2_1')) this.startQuest('c2_1');
     this.last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -355,7 +356,7 @@ export class Game {
   }
 
   bossDefeated(id: string): boolean {
-    return (id === 'big_zombie' && !!this.hero.flags.crypt_cleared) || (id === 'bandit_king' && !!this.hero.flags.king_dead) || (id === 'big_demon' && !!this.hero.flags.vargon_dead);
+    return (id === 'big_zombie' && !!this.hero.flags.crypt_cleared) || (id === 'bandit_king' && !!this.hero.flags.king_dead) || (id === 'big_demon' && !!this.hero.flags.vargon_dead) || (id === 'forest_lord' && !!this.hero.flags.spirit_dead);
   }
 
   travel(to: string, spawn: string): void {
@@ -1342,7 +1343,7 @@ export class Game {
     this.shake(8);
     music('victory');
     this.ui.bossBar(null);
-    const flag = e.d.id === 'big_zombie' ? 'crypt_cleared' : e.d.id === 'bandit_king' ? 'king_dead' : 'vargon_dead';
+    const flag = e.d.id === 'big_zombie' ? 'crypt_cleared' : e.d.id === 'bandit_king' ? 'king_dead' : e.d.id === 'forest_lord' ? 'spirit_dead' : 'vargon_dead';
     this.setFlag(flag);
     for (const o of this.enemies) if (!o.dead && o !== e && (o as any).summoned) this.killEnemy(o);
     if (e.d.id === 'big_zombie') {
@@ -1351,7 +1352,8 @@ export class Game {
     } else if (e.d.id === 'bandit_king') {
       this.arenaLocked = false;
       this.ui.big('도적왕 가르토 처치!', '왕관의 조각을 손에 넣었다');
-    } else this.ui.big('선봉장 바르곤 처치!', '균열이 잠잠해진다');
+    } else if (e.d.id === 'forest_lord') this.ui.big('타락한 정령 실바레스 정화!', '숲의 심장이 다시 뛰기 시작한다');
+    else this.ui.big('선봉장 바르곤 처치!', '균열이 잠잠해진다');
     setTimeout(() => music(this.map.bgm), 4500);
   }
 
@@ -1543,6 +1545,7 @@ export class Game {
       if ((h as any).fake) continue;
       // 발동
       if (h.fx === 'meteor') { this.explosion(h.x, h.y, 22, 'fire'); this.shake(3); }
+      else if (h.fx === 'thorn') { this.thornFx(h.x, h.y); this.shake(2); }
       else if (h.fx === 'boom') { this.explosion(h.x, h.y, (h.shape as any).r ?? 24, 'fire'); this.shake(4); }
       else if (h.fx === 'hammer') { this.hammerFx(h.x, h.y); this.shake(5); }
       else if (h.fx === 'crack') this.crackFx(h);
@@ -1628,6 +1631,14 @@ export class Game {
       this.parts.push({ x, y: y - 4, z: 0, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.7, vz: 0, life: 0.4 + Math.random() * 0.2, max: 0.6, color: cols[(Math.random() * cols.length) | 0], size: Math.random() < 0.3 ? 2 : 1, kind: 'spark' });
     }
     for (let i = 0; i < 6; i++) this.smokeFx(x + Math.random() * r - r / 2, y - 6, '#3f3f3f');
+  }
+  thornFx(x: number, y: number): void {
+    sfx('hit');
+    this.parts.push({ x, y, z: 0, vx: 0, vy: 0, vz: 0, life: 0.35, max: 0.35, color: '#97da3f', size: 1, kind: 'ring', r: 22 });
+    for (let i = 0; i < 18; i++) {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * 18;
+      this.parts.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r * 0.7, z: 0, vx: 0, vy: 0, vz: 40 + Math.random() * 40, life: 0.45, max: 0.45, color: i % 3 ? '#3d734f' : '#97da3f', size: 1, kind: 'spark', grav: 220 });
+    }
   }
   hammerFx(x: number, y: number): void {
     sfx('boom');
@@ -1834,14 +1845,17 @@ export class Game {
           if (countOf(this.hero, 'mat', prev.mat) < prev.n) { q.stage--; continue; }
           removeCount(this.hero, 'mat', prev.mat, prev.n);
         }
+        const said = def.talks?.[q.stage];
+        const sf = def.stageFlags?.[q.stage];
         q.stage++;
+        if (sf) this.setFlag(sf);
         if (q.stage >= def.stages.length) {
           this.completeQuest(q.id);
           return { quest: def, lines: def.doneByRace?.[this.hero.race] ?? def.done };
         }
         if (q.id === 'main2' && q.stage === 1)
           return { quest: def, lines: ['촌장님이 보냈나? 마침 잘 왔다.', '사흘 전 순찰대가 북서쪽 지하 묘지를 조사하러 갔다가 돌아오지 않았다.', '묘지 깊은 곳에 거대한 구울이 산다는 소문이 있다. 놈을 처치하고 순찰대의 흔적을 찾아다오.', '(TIP: 언데드는 성속성과 화염에 약하다)'] };
-        return { quest: def, lines: ['좋아, 계속 부탁하네.'] };
+        return { quest: def, lines: said ?? ['좋아, 계속 부탁하네.'] };
       }
     }
     return null;
@@ -1880,7 +1894,8 @@ export class Game {
     this.gainXp(r.xp);
     if (r.flag) this.setFlag(r.flag);
     if (def.next) setTimeout(() => this.startQuest(def.next!), 600);
-    if (id === 'main3') setTimeout(() => this.ui.showChapterClear(), 1800);
+    if (id === 'main3') setTimeout(() => this.ui.showChapterClear(1), 1800);
+    if (id === 'c2_4') setTimeout(() => this.ui.showChapterClear(2), 1800);
     this.ui.hudDirty();
     this.ui.questUpdate();
   }
@@ -1915,8 +1930,9 @@ export class Game {
     const ENEMY_MAP: Record<string, string> = {
       wolf: 'field', boar: 'field', spider: 'field', goblin: 'field', bandit: 'field', bandit_archer: 'field', masked_orc: 'field',
       skelet: 'crypt', zombie: 'crypt', tiny_zombie: 'crypt', necromancer: 'crypt',
+      blight_wolf: 'forest', swampy: 'forest', muddy: 'forest', slug: 'forest', pumpkin_dude: 'forest', forest_spirit: 'forest', dryad: 'forest',
     };
-    const MAT_ENEMY: Record<string, string> = { hide: 'boar', silk: 'spider', bone: 'skelet' };
+    const MAT_ENEMY: Record<string, string> = { hide: 'boar', silk: 'spider', bone: 'skelet', spirit_stone: 'forest_spirit' };
     let map = '';
     let label = '';
     let point: (() => { x: number; y: number } | null) = () => null;
@@ -1942,7 +1958,7 @@ export class Game {
       point = nearestEnemy(ids);
     } else if (st.k === 'flag') {
       const boss: Record<string, [string, string, string]> = {
-        crypt_cleared: ['crypt', 'big_zombie', '묘지기'], king_dead: ['fort', 'bandit_king', '도적왕'], vargon_dead: ['rift', 'big_demon', '바르곤'],
+        crypt_cleared: ['crypt', 'big_zombie', '묘지기'], king_dead: ['fort', 'bandit_king', '도적왕'], vargon_dead: ['rift', 'big_demon', '바르곤'], spirit_dead: ['grove', 'forest_lord', '실바레스'],
       };
       const b = boss[st.flag];
       if (!b) return null;
@@ -1958,8 +1974,8 @@ export class Game {
       const pt = point();
       return pt ? { ...pt, label, exit: false, npc: st.k === 'talk' } : null;
     }
-    // 다른 지역: 다음으로 거쳐 갈 맵의 출구를 가리킨다 (마을 ↔ 평원 ↔ 던전들)
-    const hop = this.map.id === 'field' ? map : 'field';
+    // 다른 지역: 지역 연결도를 따라 다음으로 거쳐 갈 지역의 출구를 가리킨다
+    const hop = nextHop(this.map.id, map) ?? 'field';
     const ex = this.map.exits.find((e) => e.to === hop) ?? this.map.exits.find((e) => e.to === 'field');
     if (!ex) return null;
     return { x: (ex.x + ex.w / 2) * TS, y: (ex.y + ex.h / 2) * TS, label: `${MAP_NAME[ex.to] ?? ''} 방향 · ${label}`, exit: true };

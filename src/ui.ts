@@ -182,14 +182,17 @@ export class UI implements UIHooks {
       </div>`);
     $('#revive').onclick = () => { this.closeModal(true); this.g.respawn(); };
   }
-  showChapterClear(): void {
+  showChapterClear(chapter = 1): void {
     sfx('levelup');
+    const ch = chapter === 2
+      ? { title: '엘프와의 맹약', body: '타락한 정령 실바레스를 정화하고 실바넬과 새로운 맹약을 맺었다.<br>두 번째 왕관 조각이 아이언후드 산맥의 용광로를 가리킨다.', next: '3장 「아이언후드의 용광로」는 다음 업데이트에서 이어집니다. 그동안 균열의 틈에 도전해 보세요.' }
+      : { title: '왕관 행방의 단서', body: '도적왕 가르토를 쓰러뜨리고 왕관의 조각을 되찾았다.<br>조각의 문양은 엘프의 숲, 실바넬을 가리킨다.', next: '2장이 시작된다: 실바넬 숲 마을의 장로 탈리온을 찾아가라. 남동쪽 평원의 균열은 서브 퀘스트로 도전할 수 있다.' };
     this.openModal('clear', `
       <div class="panel center clear">
-        <div class="kicker">CHAPTER 1 CLEAR</div>
-        <h2>왕관 행방의 단서</h2>
-        <p>도적왕 가르토를 쓰러뜨리고 왕관의 조각을 되찾았다.<br>조각의 문양은 엘프의 숲, 실바넬을 가리킨다.</p>
-        <p class="dim">평원 남동쪽에 붉은 균열이 열렸다. 균열의 선봉장을 쓰러뜨리고 마을을 지켜라.<br>플레이 시간 ${fmtTime(this.hero.playtime)} · 처치 ${this.hero.kills}</p>
+        <div class="kicker">CHAPTER ${chapter} CLEAR</div>
+        <h2>${ch.title}</h2>
+        <p>${ch.body}</p>
+        <p class="dim">${ch.next}<br>플레이 시간 ${fmtTime(this.hero.playtime)} · 처치 ${this.hero.kills}</p>
         <button class="btn big" id="cont">계속하기</button>
       </div>`);
     $('#cont').onclick = () => this.closeModal();

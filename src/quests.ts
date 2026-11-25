@@ -19,6 +19,10 @@ export interface QuestDef {
   doneByRace?: Partial<Record<RaceId, string[]>>;
   stages: Objective[];
   done: string[]; // 완료 대사
+  /** 대화 단계를 마칠 때 나오는 대사 (단계 번호 → 대사) */
+  talks?: Record<number, string[]>;
+  /** 대화 단계를 마치면 켜지는 플래그 */
+  stageFlags?: Record<number, string>;
   reward: { xp: number; gold: number; soul?: number; items?: [string, number][]; equip?: string; rarity?: number; flag?: string };
   next?: string; // 끝나면 바로 이어 받는 퀘스트
   autoAccept?: boolean;
@@ -97,14 +101,80 @@ export const QUESTS: Record<string, QuestDef> = {
       '...그런데 자네가 요새에 있던 사이, 남동쪽 평원에 붉은 균열이 열렸다네. 북쪽 마족의 군세가 움직인다는 징조야.',
     ],
     reward: { xp: 900, gold: 400, soul: 5, equip: 'auto', rarity: 3, flag: 'ch1_clear' },
-    next: 'main4',
+    next: 'c2_1',
   },
   main4: {
-    id: 'main4', name: '균열의 그림자', main: true, giver: 'elder', autoAccept: true,
-    offer: [],
+    id: 'main4', name: '균열의 그림자', giver: 'elder', requires: 'main3',
+    offer: ['남동쪽 평원에 열린 붉은 균열 말일세... 마족의 선봉대가 그 안에 진을 쳤다는군.', '실바넬로 떠나기 전이든 다녀온 뒤든 좋으니, 힘을 길러 균열의 선봉장을 처치해 주게. 만만한 상대가 아닐 걸세.'],
     stages: [{ k: 'flag', flag: 'vargon_dead', text: '균열의 틈에서 선봉장 바르곤 처치' }, { k: 'talk', npc: 'elder', text: '촌장에게 보고' }],
-    done: ['균열이 닫혔군! 자네는 이 변경의 영웅일세.', '하지만 마족은 다시 올 걸세. 실바넬 숲으로 향할 준비를 하게. (2장은 다음 업데이트에서!)'],
+    done: ['균열이 닫혔군! 자네는 이 변경의 영웅일세.', '하지만 마족은 다시 올 걸세. 왕관을 모두 되찾기 전까지는 안심할 수 없어.'],
     reward: { xp: 1500, gold: 800, soul: 10, equip: 'auto', rarity: 4 },
+  },
+  // ── 2장: 엘프와의 맹약 ──
+  c2_1: {
+    id: 'c2_1', name: '썩어가는 숲', main: true, giver: 'elder', autoAccept: true,
+    offer: [],
+    stages: [
+      { k: 'talk', npc: 'elf_leader', text: '실바넬 숲 마을의 장로 탈리온과 대화' },
+      { k: 'kill', enemy: ['blight_wolf', 'swampy', 'muddy', 'slug', 'pumpkin_dude', 'forest_spirit'], n: 8, text: '썩은 숲의 괴물 처치' },
+      { k: 'talk', npc: 'elf_guard', text: '숲지기 아엘린에게 보고' },
+    ],
+    talks: {
+      0: [
+        '...그래, 왕관의 조각을 가져왔구나. 이 문양은 틀림없이 실바넬의 것이다.',
+        '천 년 전, 엘프는 솔라리온 왕에게 숲의 맹약을 맡겼다. 왕관의 한 조각이 바로 그 맹약의 증표지.',
+        '왕관이 사라진 날부터 북쪽 숲이 썩기 시작했다. 맹약이 끊기자 숲의 정령이 미쳐 버린 거다.',
+        '북쪽 숲길로 들어가 썩은 괴물들을 정리해 다오. 숲지기 아엘린이 숲의 상태를 살피고 있다.',
+      ],
+    },
+    done: ['이렇게 많이... 고마워요. 하지만 썩음은 점점 깊어지고 있어요.', '숲 동쪽 늪가에서 드라이어드 한 명이 미쳐서 숲을 공격하고 있다는 소식이 있어요. 그녀가 썩음의 통로가 된 것 같아요.'],
+    reward: { xp: 900, gold: 250, soul: 3 },
+    next: 'c2_2',
+  },
+  c2_2: {
+    id: 'c2_2', name: '미쳐 버린 드라이어드', main: true, giver: 'elf_guard', autoAccept: true,
+    offer: [],
+    stages: [
+      { k: 'kill', enemy: 'dryad', n: 1, text: '썩은 숲 동쪽 늪가의 드라이어드 처치' },
+      { k: 'talk', npc: 'elf_leader', text: '장로 탈리온에게 보고' },
+    ],
+    done: [
+      '드라이어드를 잠재웠구나. 그녀도 피해자였을 뿐이다... 숲이 그녀를 다시 품어 줄 것이다.',
+      '이제 근원을 쳐야 한다. 숲의 심장, 고목의 심장부에 타락한 정령 실바레스가 있다.',
+      '심장부로 가는 길은 가시덩굴이 막고 있다. 정화 의식에는 숲정령의 정령석이 세 개 필요하다.',
+    ],
+    reward: { xp: 1000, gold: 300, equip: 'auto', rarity: 2 },
+    next: 'c2_3',
+  },
+  c2_3: {
+    id: 'c2_3', name: '정화의 의식', main: true, giver: 'elf_leader', autoAccept: true,
+    offer: [],
+    stages: [
+      { k: 'collect', mat: 'spirit_stone', n: 3, text: '타락한 숲정령에게서 정령석 모으기' },
+      { k: 'talk', npc: 'elf_leader', text: '장로 탈리온에게 정령석 전달' },
+    ],
+    stageFlags: { 1: 'grove_open' },
+    done: [
+      '(장로가 정령석을 하늘로 들어 올리자 푸른 빛이 숲 북쪽으로 뻗어 나간다)',
+      '가시덩굴이 물러났다. 숲 가장 북쪽, 고목의 심장부로 가거라.',
+      '실바레스는 원래 이 숲을 지키던 가장 오래된 정령이다. 부디... 그를 쉬게 해 다오.',
+    ],
+    reward: { xp: 900, gold: 300, items: [['hp_l', 3], ['mp_l', 3]] },
+    next: 'c2_4',
+  },
+  c2_4: {
+    id: 'c2_4', name: '엘프와의 맹약', main: true, giver: 'elf_leader', autoAccept: true,
+    offer: [],
+    stages: [
+      { k: 'flag', flag: 'spirit_dead', text: '고목의 심장에서 타락한 정령 실바레스 처치' },
+      { k: 'talk', npc: 'elf_leader', text: '장로 탈리온에게 보고' },
+    ],
+    done: [
+      '숲이... 숨을 쉬는구나. 실바레스의 영혼도 이제 편히 잠들 것이다.',
+      '실바넬은 오늘 너와 새로운 맹약을 맺는다. 이 두 번째 조각을 가져가거라.',
+      '두 조각이 서로를 부르는 소리가 들리는가? 다음 조각은 아이언후드 산맥 깊은 곳, 드워프의 용광로 쪽을 가리키고 있다.',
+    ],
+    reward: { xp: 2500, gold: 1200, soul: 8, equip: 'auto', rarity: 4, flag: 'ch2_clear' },
   },
   // ── 서브 ──
   smith_hides: {

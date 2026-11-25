@@ -92,7 +92,7 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
       g.boss = e;
       g.ui.bossBar(e);
       music('boss');
-      g.ui.big(e.d.name, e.d.id === 'bandit_king' ? '"왕관 조각은 내 거다!"' : e.d.id === 'big_zombie' ? '묘지 깊은 곳의 굶주린 자' : '"인간의 땅을 불태워라!"');
+      g.ui.big(e.d.name, e.d.id === 'bandit_king' ? '"왕관 조각은 내 거다!"' : e.d.id === 'big_zombie' ? '묘지 깊은 곳의 굶주린 자' : e.d.id === 'forest_lord' ? '"숲은... 썩어서... 다시 태어난다..."' : '"인간의 땅을 불태워라!"');
     }
     const r = e.hp / e.maxHp;
     const want = r < 0.33 ? 3 : r < 0.66 ? 2 : 1;
@@ -108,6 +108,7 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
         big_zombie: ['', '', '묘지기가 썩은 숨을 내뿜는다! (2페이즈)', '묘지기가 광폭해졌다! (3페이즈)'],
         bandit_king: ['', '', '"얘들아, 나와라!" 부하를 부른다! (2페이즈)', '도적왕이 분노했다! (3페이즈)'],
         big_demon: ['', '', '하늘에서 불꽃이 쏟아진다! (2페이즈)', '바르곤이 마계의 힘을 해방한다! (3페이즈)'],
+        forest_lord: ['', '', '실바레스가 숲정령을 부르고 가시가 쏟아진다! (2페이즈)', '썩은 심장이 고동친다! (3페이즈)'],
       };
       g.ui.toast(msg[e.d.id]?.[want] ?? '보스가 강해졌다!', '#ff7a5a');
       if (want === 3) e.enraged = true;
@@ -117,7 +118,7 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
     if (e.phase >= 2) {
       e.summonT -= dt;
       if (e.summonT <= 0) {
-        const kind = e.d.id === 'big_zombie' ? 'tiny_zombie' : e.d.id === 'bandit_king' ? (Math.random() < 0.5 ? 'bandit' : 'bandit_archer') : 'imp';
+        const kind = e.d.id === 'big_zombie' ? 'tiny_zombie' : e.d.id === 'bandit_king' ? (Math.random() < 0.5 ? 'bandit' : 'bandit_archer') : e.d.id === 'forest_lord' ? 'forest_spirit' : 'imp';
         const alive = g.enemies.filter((o) => !o.dead && (o as E).summoned).length;
         if (alive < 4 && (e.d.id !== 'big_demon' || e.phase >= 3)) {
           for (let i = 0; i < 2; i++) summon(g, e, kind);
@@ -126,11 +127,11 @@ export function updateEnemy(g: Game, en: Enemy, dt: number): void {
       }
     }
   }
-  if (e.d.id === 'necromancer' && e.aggro) {
+  if (e.d.summons && !e.boss && e.aggro) {
     e.summonT -= dt;
     if (e.summonT <= 0) {
       e.summonT = 9;
-      if (g.enemies.filter((o) => !o.dead && (o as E).summoned).length < 3) summon(g, e, 'skelet');
+      if (g.enemies.filter((o) => !o.dead && (o as E).summoned).length < 3) summon(g, e, e.d.summons);
     }
   }
 
@@ -258,7 +259,7 @@ function chooseAttack(g: Game, e: E, d: number): Atk | null {
   const p = g.p;
   const opts: Atk[] = [...e.d.attacks];
   if (e.d.id === 'bandit_king' && e.phase >= 2) opts.push('axes', 'axes');
-  if (e.d.id === 'big_demon' && e.phase >= 2) opts.push('meteor');
+  if ((e.d.id === 'big_demon' || e.d.id === 'forest_lord') && e.phase >= 2) opts.push('meteor');
   const los = g.map.los(e.x, e.y - 6, p.x, p.y - 6);
   const ok = opts.filter((a) => {
     const [lo, hi] = attackRange(e, a);
@@ -329,7 +330,8 @@ function beginAttack(g: Game, e: E, a: Atk): void {
     case 'meteor':
       for (let i = 0; i < 6; i++) {
         const aa = Math.random() * Math.PI * 2, rr = i === 0 ? 0 : 20 + Math.random() * 60;
-        const h: Hazard = { x: p.x + Math.cos(aa) * rr, y: p.y + Math.sin(aa) * rr * 0.8, shape: { k: 'circle', r: 22 }, t: 0.9 + i * 0.15, total: 0.9 + i * 0.15, team: 'enemy', dmg: atk * 1.2, element: 'fire', owner: e, fx: 'meteor', knock: 30, status: ['burn', 2, atk * 0.2] };
+        const thorn = e.d.id === 'forest_lord';
+        const h: Hazard = { x: p.x + Math.cos(aa) * rr, y: p.y + Math.sin(aa) * rr * 0.8, shape: { k: 'circle', r: 22 }, t: 0.9 + i * 0.15, total: 0.9 + i * 0.15, team: 'enemy', dmg: atk * 1.2, element: thorn ? 'poison' : 'fire', owner: e, fx: thorn ? 'thorn' : 'meteor', knock: 30, status: thorn ? ['poison', 3, atk * 0.25] : ['burn', 2, atk * 0.2] };
         g.hazards.push(h);
       }
       e.stT = 0.6;
@@ -394,11 +396,12 @@ function resolveAttack(g: Game, e: E): void {
     case 'cast': {
       sfx('bolt');
       const fire = e.d.id === 'fire_spirit' || e.d.id === 'big_demon' || e.d.id === 'imp';
-      const n = e.d.id === 'big_demon' ? 3 : 1;
+      const green = e.d.id === 'forest_spirit' || e.d.id === 'dryad';
+      const n = e.d.id === 'big_demon' ? 3 : e.d.id === 'dryad' ? 2 : 1;
       for (let i = 0; i < n; i++)
         g.shoot(e.x, e.y - 10 * e.scale, p.x, p.y - 8, {
-          speed: fire ? 140 : 110, dmg: atk, kind: 'orb', sprite: fire ? 'fx_orb_fire' : 'fx_orb_dark', element: fire ? 'fire' : 'dark', team: 'enemy', owner: e,
-          spread: (i - (n - 1) / 2) * 0.35, life: 1.8, explode: e.d.id === 'fire_spirit' ? 20 : undefined, status: fire ? ['burn', 2, atk * 0.2] : ['slow', 1.5], knock: 15,
+          speed: fire ? 140 : 110, dmg: atk, kind: 'orb', sprite: fire ? 'fx_orb_fire' : green ? 'fx_orb_green' : 'fx_orb_dark', element: fire ? 'fire' : green ? 'poison' : 'dark', team: 'enemy', owner: e,
+          spread: (i - (n - 1) / 2) * 0.35, life: 1.8, explode: e.d.id === 'fire_spirit' ? 20 : undefined, status: fire ? ['burn', 2, atk * 0.2] : green ? ['poison', 3, atk * 0.25] : ['slow', 1.5], knock: 15,
         });
       recover(0.5);
       break;

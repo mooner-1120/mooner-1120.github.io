@@ -272,6 +272,7 @@ export const MATERIALS: Record<string, { name: string; icon: string; price: numb
   silk: { name: '거미 비단', icon: 'i_helm_cloth', price: 8 },
   bone: { name: '오래된 뼈', icon: 'skull', price: 5 },
   seal: { name: '순찰대 인장', icon: 'i_amulet_blue', price: 0 },
+  spirit_stone: { name: '정령석', icon: 'fx_orb_green_0', price: 0 },
 };
 
 // ── 적 ───────────────────────────────────────────────────────────────
@@ -300,6 +301,7 @@ export interface EnemyData {
   drops?: [string, number][]; // [재료 id, 확률]
   boss?: boolean;
   elite?: boolean;
+  summons?: string; // 주기적으로 부르는 부하
   scale?: number;
 }
 
@@ -314,9 +316,18 @@ export const ENEMIES: Record<string, EnemyData> = {
   skelet: { id: 'skelet', name: '해골 전사', sprite: 'skelet', level: 4, hp: 75, atk: 15, def: 4, speed: 44, xp: 28, gold: [4, 10], kind: 'undead', attacks: ['slash'], range: 18, windup: 0.45, cd: 1.3, aggro: 100, radius: 5, weak: ['holy'], resist: ['poison'], drops: [['bone', 0.4]] },
   zombie: { id: 'zombie', name: '구울', sprite: 'zombie', level: 5, hp: 140, atk: 18, def: 3, speed: 26, xp: 36, gold: [4, 12], kind: 'undead', attacks: ['bite'], range: 18, windup: 0.6, cd: 1.6, aggro: 80, radius: 6, weak: ['holy', 'fire'], resist: ['poison'], drops: [['bone', 0.4]] },
   tiny_zombie: { id: 'tiny_zombie', name: '썩은 망자', sprite: 'tiny_zombie', level: 4, hp: 50, atk: 11, def: 1, speed: 52, xp: 20, gold: [2, 6], kind: 'undead', attacks: ['bite'], range: 14, windup: 0.3, cd: 1.0, aggro: 90, radius: 5, weak: ['holy', 'fire'] },
-  necromancer: { id: 'necromancer', name: '리치', sprite: 'necromancer', level: 6, hp: 150, atk: 20, def: 4, speed: 34, xp: 70, gold: [20, 40], kind: 'undead', attacks: ['cast'], range: 110, windup: 0.8, cd: 2.2, aggro: 130, radius: 6, keepDist: 70, weak: ['holy'], elite: true },
+  necromancer: { id: 'necromancer', name: '리치', sprite: 'necromancer', level: 6, hp: 150, atk: 20, def: 4, speed: 34, xp: 70, gold: [20, 40], kind: 'undead', attacks: ['cast'], range: 110, windup: 0.8, cd: 2.2, aggro: 130, radius: 6, keepDist: 70, weak: ['holy'], elite: true, summons: 'skelet' },
   big_zombie: { id: 'big_zombie', name: '묘지기 거대 구울', sprite: 'big_zombie', level: 7, hp: 900, atk: 26, def: 6, speed: 30, xp: 300, gold: [120, 180], kind: 'undead', attacks: ['slam', 'bite', 'spit'], range: 28, windup: 0.8, cd: 1.6, aggro: 200, radius: 11, weak: ['holy', 'fire'], boss: true },
   bandit_king: { id: 'bandit_king', name: '도적왕 가르토', sprite: 'bandit_king', level: 9, hp: 1700, atk: 32, def: 9, speed: 40, xp: 650, gold: [400, 500], kind: 'human', attacks: ['slash', 'charge', 'slam'], range: 30, windup: 0.7, cd: 1.3, aggro: 220, radius: 11, boss: true },
+  // ── 2장: 실바넬의 썩은 숲 ──
+  blight_wolf: { id: 'blight_wolf', name: '타락한 늑대', sprite: 'blight_wolf', level: 8, hp: 150, atk: 25, def: 5, speed: 64, xp: 55, gold: [8, 16], kind: 'wild', attacks: ['bite'], range: 18, windup: 0.35, cd: 1.1, aggro: 100, radius: 6, weak: ['fire', 'holy'] },
+  swampy: { id: 'swampy', name: '썩은 슬라임', sprite: 'swampy', level: 8, hp: 170, atk: 23, def: 4, speed: 30, xp: 50, gold: [6, 14], kind: 'spirit', attacks: ['bite', 'spit'], range: 70, windup: 0.5, cd: 1.6, aggro: 90, radius: 7, weak: ['fire'], resist: ['poison'] },
+  muddy: { id: 'muddy', name: '진흙 덩어리', sprite: 'muddy', level: 9, hp: 240, atk: 28, def: 9, speed: 26, xp: 62, gold: [8, 16], kind: 'spirit', attacks: ['slam'], range: 24, windup: 0.7, cd: 1.8, aggro: 80, radius: 7, weak: ['ice'] },
+  slug: { id: 'slug', name: '거대 민달팽이', sprite: 'slug', level: 9, hp: 200, atk: 26, def: 6, speed: 22, xp: 58, gold: [6, 14], kind: 'wild', attacks: ['spit'], range: 90, windup: 0.6, cd: 1.7, aggro: 100, radius: 6, keepDist: 50, weak: ['fire'], resist: ['poison'] },
+  pumpkin_dude: { id: 'pumpkin_dude', name: '호박 망령', sprite: 'pumpkin_dude', level: 9, hp: 190, atk: 30, def: 6, speed: 52, xp: 64, gold: [10, 20], kind: 'undead', attacks: ['slash', 'charge'], range: 20, windup: 0.45, cd: 1.3, aggro: 110, radius: 6, weak: ['fire', 'holy'] },
+  forest_spirit: { id: 'forest_spirit', name: '타락한 숲정령', sprite: 'forest_spirit', level: 10, hp: 190, atk: 30, def: 6, speed: 40, xp: 75, gold: [10, 22], kind: 'spirit', attacks: ['cast'], range: 105, windup: 0.6, cd: 1.6, aggro: 120, radius: 6, keepDist: 55, weak: ['fire', 'holy'], resist: ['poison'], drops: [['spirit_stone', 0.5]] },
+  dryad: { id: 'dryad', name: '미쳐 버린 드라이어드', sprite: 'dryad', level: 11, hp: 620, atk: 34, def: 8, speed: 46, xp: 220, gold: [40, 70], kind: 'spirit', attacks: ['cast', 'slash'], range: 110, windup: 0.6, cd: 1.5, aggro: 140, radius: 6, keepDist: 60, weak: ['fire'], resist: ['poison'], elite: true, summons: 'slug' },
+  forest_lord: { id: 'forest_lord', name: '타락한 정령 실바레스', sprite: 'forest_lord', level: 13, hp: 4200, atk: 44, def: 12, speed: 40, xp: 2000, gold: [900, 1200], kind: 'spirit', attacks: ['slash', 'spit', 'slam', 'charge'], range: 30, windup: 0.65, cd: 1.25, aggro: 240, radius: 11, weak: ['fire', 'holy'], resist: ['poison'], boss: true },
   imp: { id: 'imp', name: '임프', sprite: 'imp', level: 9, hp: 120, atk: 26, def: 5, speed: 62, xp: 60, gold: [10, 20], kind: 'demon', attacks: ['cast'], range: 100, windup: 0.45, cd: 1.4, aggro: 120, radius: 5, keepDist: 50, weak: ['holy'] },
   chort: { id: 'chort', name: '마검사', sprite: 'chort', level: 10, hp: 230, atk: 32, def: 9, speed: 50, xp: 90, gold: [15, 30], kind: 'demon', attacks: ['slash', 'charge'], range: 22, windup: 0.5, cd: 1.3, aggro: 120, radius: 6, weak: ['holy'] },
   fire_spirit: { id: 'fire_spirit', name: '불 정령', sprite: 'fire_spirit', level: 10, hp: 180, atk: 30, def: 6, speed: 40, xp: 80, gold: [12, 25], kind: 'spirit', attacks: ['cast'], range: 100, windup: 0.6, cd: 1.6, aggro: 120, radius: 6, keepDist: 55, weak: ['ice'], resist: ['fire'] },
