@@ -335,11 +335,12 @@ export class Game {
       this.enemies.push(new Enemy(ENEMIES[s.id], s.x, s.y, s));
     }
     this.npcs = m.npcs.map((n) => new NpcEnt(n.id, n.name, n.sprite, n.x, n.y, n.wander ?? 0));
-    const pt = typeof spawn === 'string' ? m.points[spawn] ?? m.points.start : spawn;
+    const fallback = m.points.start ?? Object.values(m.points)[0];
+    const pt = typeof spawn === 'string' ? m.points[spawn] ?? fallback : spawn;
     this.p.x = pt[0];
     this.p.y = pt[1];
     if (m.hits(this.p.x, this.p.y, this.p.r)) {
-      const s = m.points.start;
+      const s = fallback;
       this.p.x = s[0];
       this.p.y = s[1];
     }

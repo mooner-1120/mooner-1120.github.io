@@ -546,6 +546,14 @@ export function buildForest(): GameMap {
     const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 2;
     for (let k = 0; k <= n; k++) m.fillRect(Math.round(ax + ((bx - ax) * k) / n) - 1, Math.round(ay + ((by - ay) * k) / n) - 1, 3, 3, T.Dirt);
   }
+  // 공터로 가는 샛길 (동쪽 늪가·북서쪽 공터·동쪽 숲)
+  const spur = (a: [number, number], b2: [number, number]) => {
+    const n = Math.max(Math.abs(b2[0] - a[0]), Math.abs(b2[1] - a[1])) * 2;
+    for (let k = 0; k <= n; k++) m.fillRect(Math.round(a[0] + ((b2[0] - a[0]) * k) / n) - 1, Math.round(a[1] + ((b2[1] - a[1]) * k) / n), 2, 2, T.Dirt);
+  };
+  spur([34, 48], [46, 46]); spur([46, 46], [58, 40]);
+  spur([18, 32], [21, 19]); spur([21, 19], [12, 14]);
+  spur([42, 22], [52, 13]);
   // 공터 (전투 구역)
   const clearings: [number, number, number][] = [[34, 47, 6], [20, 33, 7], [44, 22, 7], [52, 12, 5], [12, 14, 6], [58, 40, 6]];
   for (const [cx, cy, rr] of clearings)
@@ -575,7 +583,13 @@ export function buildForest(): GameMap {
     for (let i = 0; i < n; i++)
       for (let k = 0; k < 25; k++) {
         const x = cx + (r() * 2 - 1) * spread, y = cy + (r() * 2 - 1) * spread;
-        if (!m.blocked(Math.floor(x), Math.floor(y))) { m.spawns.push({ id, x: x * TS + 8, y: y * TS + 8, respawn: 45 }); break; }
+        if (m.blocked(Math.floor(x), Math.floor(y))) continue;
+        // 입구에서 실제로 걸어갈 수 있는 자리만
+        const path = m.findPath(px(35), px(54), x * TS + 8, y * TS + 8, 20000);
+        const last = path?.[path.length - 1];
+        if (!last || Math.hypot(last[0] - (x * TS + 8), last[1] - (y * TS + 8)) > 20) continue;
+        m.spawns.push({ id, x: x * TS + 8, y: y * TS + 8, respawn: 45 });
+        break;
       }
   };
   zone('blight_wolf', 34, 46, 3); zone('swampy', 26, 50, 2);
