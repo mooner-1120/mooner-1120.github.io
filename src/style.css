@@ -301,3 +301,6 @@ table.keys td:first-child { color: var(--gold); white-space: nowrap; }
 #tutorial .tp i { flex: 1; height: 4px; background: #3a2e30; }
 #tutorial .tp i.ok { background: #9be06a; }
 #tutorial .tp i.on { background: var(--gold); }
+
+/* 대화·메뉴 창이 열려 있으면 튜토리얼 안내는 잠시 숨긴다 */
+#ui.modal-open #tutorial { display: none; }

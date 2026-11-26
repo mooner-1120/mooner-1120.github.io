@@ -376,6 +376,7 @@ export class UI implements UIHooks {
   // ── 모달 ───────────────────────────────────────────────────────
   openModal(name: string, html: string, bottom = false): void {
     this.modal = name;
+    this.root.classList.add('modal-open');
     const m = $('#modal');
     m.className = bottom ? 'bottom' : '';
     m.innerHTML = html;
@@ -385,6 +386,7 @@ export class UI implements UIHooks {
   closeModal(force = false): void {
     if (this.modal === 'death' && !force) return;
     this.modal = null;
+    this.root.classList.remove('modal-open');
     this.talkQueue = null;
     const m = $('#modal');
     m.className = 'hidden';
@@ -972,7 +974,8 @@ export class UI implements UIHooks {
     pa.classList.toggle('hidden', !msg);
     pa.onclick = () => this.openMenu(h.points ? 'stat' : 'skill');
     // 퀘스트 추적
-    const act = h.quests.filter((q) => !q.done).slice(0, 4);
+    // 튜토리얼(꿈) 중에는 퀘스트 추적을 숨긴다 — 안내 창이 할 일을 알려 준다
+    const act = this.g.map.id === 'tutorial' ? [] : h.quests.filter((q) => !q.done).slice(0, 4);
     $('#tracker').innerHTML = act.map((q) => {
       const def = QUESTS[q.id];
       const st = def.stages[q.stage];
