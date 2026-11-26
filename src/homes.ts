@@ -38,7 +38,7 @@ export const NPC_NAME: Record<string, string> = {
 export const MAP_NAME: Record<string, string> = {
   village: '하스벨 마을', field: '솔라리온 평원', crypt: '지하 묘지', fort: '도적단 요새', rift: '균열의 틈',
   elfhome: '실바넬 숲 마을', dwarfhome: '아이언후드 광산 마을', orchome: '붉은 평원 야영지', demonhome: '그림자 은신처',
-  forest: '실바넬의 썩은 숲', grove: '타락한 고목의 심장',
+  tutorial: '잿불의 꿈', forest: '실바넬의 썩은 숲', grove: '타락한 고목의 심장',
   forge: '태초의 용광로', redplains: '붉은 평원 전장', warcamp: '카르쿠쉬의 전쟁 진영',
   riftland: '균열의 땅', obsidian: '흑요 요새', throne: '왕좌의 방',
 };

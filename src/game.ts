@@ -13,6 +13,7 @@ import { GameMap, TS, Exit, MapObj } from './tilemap';
 import { updateEnemy } from './ai';
 import { renderGame } from './render';
 import { Coop } from './coop';
+import { Tutorial } from './tutorial';
 import { RARITY } from './data';
 import { anim } from './assets';
 import { actionFor, settings as keySettings, shouldPrevent, ActionId } from './keys';
@@ -30,6 +31,8 @@ export interface UIHooks {
   showChapterClear(chapter: number): void;
   showEnding(id: string): void;
   showScene(title: string, lines: string[]): void;
+  showTalk(npc: NpcEnt, lines: string[], after: () => void): void;
+  closeModal(force?: boolean): void;
   questUpdate(): void;
 }
 
@@ -68,6 +71,7 @@ export class Game {
   mouse = { sx: 0, sy: 0, wx: 0, wy: 0, down: false, downT: 0, moved: false };
   moveKeys = new Set<string>();
   coop: Coop = new Coop(this);
+  tutorial: Tutorial = new Tutorial(this);
   private wasMirrored = false;
   /** 마지막 조작이 키보드였나 — 그렇다면 스킬을 인식한 적에게 조준한다 */
   kbAim = false;
@@ -303,6 +307,13 @@ export class Game {
     this.running = false;
   }
 
+  /** 튜토리얼을 마치거나 건너뛰고 고향에서 눈을 뜬다 */
+  leaveTutorial(): void {
+    this.hero.flags.tut_done = true;
+    this.tutorial.end();
+    this.travel(HOME[this.hero.race].map, 'start');
+  }
+
   /** 예전 버전 세이브를 새 이야기 구조로 옮긴다 */
   migrate(): void {
     const h = this.hero;
@@ -450,6 +461,15 @@ export class Game {
     this.npcs = [];
     this.syncWorld();
     this.selfTalkT = 1.2;
+    if (m.id === 'tutorial' && !this.hero.flags.tut_done) this.tutorial.begin();
+    else this.tutorial.end();
+    // 꿈에서 깨어나 고향에 처음 도착: 지도자가 말을 건다
+    if (!this.hero.flags.intro && m.id === HOME[this.hero.race].map) {
+      this.hero.flags.intro = true;
+      const leader = this.npcs.find((n) => n.id === HOME[this.hero.race].leader);
+      const lines = QUESTS.pro.offerByRace?.[this.hero.race] ?? QUESTS.pro.offer;
+      if (leader) setTimeout(() => this.ui.showTalk(leader, lines, () => this.ui.closeModal()), 1100);
+    }
     const fallback = m.points.start ?? Object.values(m.points)[0];
     const pt = typeof spawn === 'string' ? m.points[spawn] ?? fallback : spawn;
     this.p.x = pt[0];
@@ -554,6 +574,7 @@ export class Game {
     if (!mirrored) this.updateRespawns(dt);
     this.checkExits(dt);
     this.updateTalk(dt);
+    this.tutorial.update(dt);
     this.updateLore();
     this.updateCamera(dt);
     this.saveT += dt;
@@ -925,6 +946,7 @@ export class Game {
     const p = this.p;
     if (!p || p.dead) return;
     this.kbAim = true;
+    this.tutorial.event('cycle');
     const list = this.lockCandidates();
     if (!list.length) { p.lock = null; this.ui.toast('주변에 인식할 적이 없다', '#ff9'); return; }
     const i = p.lock ? list.indexOf(p.lock) : -1;
@@ -1050,6 +1072,7 @@ export class Game {
     if (ok === false) return;
     p.mp -= s.mp;
     p.cds[s.id] = s.cd * (1 - Math.min(0.3, (lv - 1) * 0.04));
+    this.tutorial.event('skill');
     p.flip = Math.cos(ang) < 0;
     p.aimAng = ang;
     if (p.stealth > 0 && s.id !== 'smoke') { p.stealth = 0; this.recalc(); }
@@ -1291,6 +1314,7 @@ export class Game {
     if (this.touch && p.path.length) { dx = p.path[0][0] - p.x; dy = p.path[0][1] - p.y; }
     const d = Math.hypot(dx, dy) || 1;
     p.roll = { t: 0.3, dx: dx / d, dy: dy / d };
+    if (this.hazards.some((h) => h.team === 'enemy' && h.t > 0 && Math.hypot(h.x - p.x, h.y - p.y) < 44)) this.tutorial.event('dodge');
     p.iframes = 0.2; // 무적 프레임 0.2초 (기획서 6.1)
     p.rollCd = 0.35;
     p.path = [];
@@ -1325,7 +1349,7 @@ export class Game {
     removeCount(this.hero, 'use', id, 1);
     p.cds['item_' + id] = 0.5;
     sfx('potion');
-    if (c.heal) this.healPlayer(c.heal, true);
+    if (c.heal) { this.healPlayer(c.heal, true); this.tutorial.event('potion'); }
     if (c.mana) { p.mp = Math.min(this.der.maxMp, p.mp + c.mana); this.text(p.x, p.y - 30, '+' + c.mana, '#6ab8ff', false); }
     if (c.cure) for (const k of ['poison', 'burn', 'slow'] as StatusId[]) delete p.status[k];
     if (c.buff) this.addBuff('food', { t: c.buff.dur, max: c.buff.dur, name: c.name, atkPct: c.buff.atkPct, icon: c.icon });
@@ -1535,6 +1559,13 @@ export class Game {
     this.hero.kills++;
     for (let i = 0; i < 12; i++)
       this.parts.push({ x: e.x, y: e.y - 6, z: 0, vx: Math.random() * 80 - 40, vy: Math.random() * 40 - 30, vz: 0, life: 0.6, max: 0.6, color: e.d.kind === 'undead' ? '#d3bfa9' : e.d.kind === 'demon' ? '#9f294e' : '#8f4029', size: 1, kind: 'smoke' });
+    if (e.d.id === 'dummy') {
+      // 튜토리얼 허수아비: 보상 없이 다시 세운다
+      this.tutorial.event('kill');
+      if (e.spawn?.respawn) this.respawns.push({ def: e.spawn, t: e.spawn.respawn });
+      if (this.p.target === e) this.p.target = null;
+      return;
+    }
     // 경험치
     let xp = e.d.xp;
     const diff = this.hero.level - e.d.level;
@@ -1574,6 +1605,7 @@ export class Game {
 
   gainXp(n: number): void {
     const h = this.hero;
+    if (n <= 0) return;
     if (h.level >= MAX_LEVEL) return;
     h.xp += n;
     this.text(this.p.x, this.p.y - 38, `+${n} EXP`, '#c6b4ff', false);
@@ -1972,7 +2004,8 @@ export class Game {
           return;
         }
         if (this.boss && this.boss.aggro && !this.boss.dead) { if (this.exitMsgT <= 0) { this.ui.toast('보스에게서 도망칠 수 없다!', '#f66'); this.exitMsgT = 2; } this.bounceFrom(ex); return; }
-        this.travel(ex.to, ex.spawn);
+        if (ex.to === 'HOME') this.leaveTutorial();
+        else this.travel(ex.to, ex.spawn);
         return;
       }
     }
@@ -2255,6 +2288,10 @@ export class Game {
 
   /** 안내 화살표가 가리킬 곳 (현재 맵 좌표). 다른 지역이면 그쪽 출구를 가리킨다. */
   questTarget(): { x: number; y: number; label: string; exit: boolean; npc?: boolean } | null {
+    if (this.map?.id === 'tutorial') {
+      const t = this.tutorial.target();
+      return t ? { ...t, exit: false, npc: !t.label } : null;
+    }
     const q = this.trackedQuest();
     if (!q) return null;
     const def = QUESTS[q.id];

@@ -1122,6 +1122,30 @@ recolor_set("ogre", "karkush", {"8f4029": "62232f", "314152": "da4e38"}, kinds=(
 recolor_set("big_demon", "belkar", {"da4e38": "3f3f3f", "9f294e": "ee8e2e", "fdf7ed": "facb3e"}, kinds=("idle", "run"))
 
 
+# 튜토리얼: 잿불 허수아비 (나무 기둥 + 짚 자루 + 과녁 얼굴)
+def dummy(f):
+    img = new(16, 24)
+    rect(img, 7, 10, 2, 14, P["wooddk"])
+    rect(img, 7, 10, 1, 14, P["wood"])
+    rect(img, 2, 11, 12, 2, P["wooddk"])
+    rect(img, 2, 11, 12, 1, P["wood"])
+    ellipse(img, 8, 15, 4.2, 4.6, (P["yellow"], P["skin"], P["wooddk"]))
+    for y in (13, 16):
+        rect(img, 5, y, 6, 1, P["wooddk"])
+    ellipse(img, 8, 6, 3.6, 3.8, (P["beige"], P["tan"], P["brown"]))
+    put(img, 6, 5, P["red"]); put(img, 7, 6, P["red"]); put(img, 6, 7, P["red"]); put(img, 5, 6, P["red"]) if False else None
+    put(img, 9, 5, P["dkbrown"]); put(img, 10, 6, P["dkbrown"]); put(img, 9, 7, P["dkbrown"]); put(img, 11, 5, P["dkbrown"]); put(img, 11, 7, P["dkbrown"])
+    put(img, 6, 5, P["dkbrown"]); put(img, 7, 6, P["dkbrown"]); put(img, 6, 7, P["dkbrown"]); put(img, 5, 5, P["dkbrown"]); put(img, 5, 7, P["dkbrown"])
+    if f == 1:
+        put(img, 12, 14, P["orange"]); put(img, 3, 16, P["orange"])
+    return outline(img)
+
+
+for f in range(2):
+    add(f"dummy_idle_anim_f{f}", dummy(f))
+    add(f"dummy_run_anim_f{f}", dummy(f))
+
+
 def pack(frames, width=1024):
     items = sorted(frames.items(), key=lambda kv: (-kv[1].height, kv[0]))
     x = y = 0

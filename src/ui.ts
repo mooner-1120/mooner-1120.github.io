@@ -223,6 +223,7 @@ export class UI implements UIHooks {
   talk(n: NpcEnt): void {
     const g = this.g;
     sfx('ui');
+    if (n.id === 'tutor') g.tutorial.event('talk');
     const prog = g.talkProgress(n.id);
     if (prog?.choice) {
       const c = prog.choice;
@@ -403,6 +404,7 @@ export class UI implements UIHooks {
 
   // ── 메뉴: 가방 / 능력치 / 스킬 / 퀘스트 ────────────────────────
   openMenu(tab: string): void {
+    this.g?.tutorial?.event('menu');
     this.menuTab = tab;
     this.selInv = null;
     this.selEq = null;

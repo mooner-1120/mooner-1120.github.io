@@ -374,6 +374,8 @@ export const ENEMIES: Record<string, EnemyData> = {
   forest_spirit: { id: 'forest_spirit', name: '타락한 숲정령', sprite: 'forest_spirit', level: 10, hp: 190, atk: 30, def: 6, speed: 40, xp: 75, gold: [10, 22], kind: 'spirit', attacks: ['cast'], range: 105, windup: 0.6, cd: 1.6, aggro: 120, radius: 6, keepDist: 55, weak: ['fire', 'holy'], resist: ['poison'], drops: [['spirit_stone', 0.5]] },
   dryad: { id: 'dryad', name: '미쳐 버린 드라이어드', sprite: 'dryad', level: 11, hp: 620, atk: 34, def: 8, speed: 46, xp: 220, gold: [40, 70], kind: 'spirit', attacks: ['cast', 'slash'], range: 110, windup: 0.6, cd: 1.5, aggro: 140, radius: 6, keepDist: 60, weak: ['fire'], resist: ['poison'], elite: true, summons: 'slug' },
   forest_lord: { flag: 'spirit_dead', intro: '"숲은... 썩어서... 다시 태어난다..."', defeat: ['타락한 정령 실바레스 정화!', '생명석이 맑은 빛을 되찾았다'], phaseMsg: ['실바레스가 숲정령을 부르고 가시가 쏟아진다! (2페이즈)', '썩은 심장이 고동친다! (3페이즈)'], meteor: 'thorn', summons: 'forest_spirit', id: 'forest_lord', name: '타락한 정령 실바레스', sprite: 'forest_lord', level: 13, hp: 4200, atk: 44, def: 12, speed: 40, xp: 2000, gold: [900, 1200], kind: 'spirit', attacks: ['slash', 'spit', 'slam', 'charge'], range: 30, windup: 0.65, cd: 1.25, aggro: 240, radius: 11, weak: ['fire', 'holy'], resist: ['poison'], boss: true },
+  // ── 튜토리얼 ──
+  dummy: { id: 'dummy', name: '잿불 허수아비', sprite: 'dummy', level: 1, hp: 60, atk: 0, def: 0, speed: 0, xp: 0, gold: [0, 0], kind: 'wild', attacks: [], range: 0, windup: 1, cd: 99, aggro: 0, radius: 6 },
   // ── 프롤로그 ──
   ash_beast: { id: 'ash_beast', name: '잿빛 짐승', sprite: 'ash_wolf', level: 1, hp: 30, atk: 7, def: 0, speed: 54, xp: 18, gold: [2, 5], kind: 'wild', attacks: ['bite'], range: 18, windup: 0.5, cd: 1.5, aggro: 140, radius: 6, weak: ['fire', 'holy'] },
   // ── 3장: 아이언후드 용광로 ──

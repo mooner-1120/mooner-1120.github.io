@@ -764,6 +764,10 @@ type Greet = { race?: RaceId[]; when?: string; unless?: string; lines: string[] 
 const R = (...r: RaceId[]) => r;
 
 export const GREET: Record<string, Greet[]> = {
+  tutor: [
+    { race: R('demon'), lines: ['나는 네 고향 성소에 남은 마지막 불꽃이다. ...이상하구나. 너에게서 아주 오래된 내 고향의 냄새가 난다.'] },
+    { lines: ['나는 네 고향 성소에 남은 마지막 불꽃이다. 꺼지기 전에 너를 시험하러 꿈속에 왔다. 몸을 움직여 보아라.'] },
+  ],
   elder: [
     { when: 'game_clear', lines: ['자네 이야기는 이제 노래가 되어 대륙을 돌고 있다네. 나는 그 첫 소절을 들은 늙은이고.'] },
     { when: 'ch4_clear', unless: 'game_clear', lines: ['가르토 소식은 들었네... 자네가 무엇을 골랐든, 그 녀석은 원망하지 않을 거야.', '모르데인 그놈, 처음부터 보석만 노렸던 거로군. 근위대 시절에 알아봤어야 했는데.'] },

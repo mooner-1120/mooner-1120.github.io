@@ -8,6 +8,7 @@ import { newHero } from './items';
 import { QUESTS } from './quests';
 import { loadKeys } from './keys';
 import { renderSettings } from './settings';
+import { playIntro } from './cutscene';
 import { HOME, MAP_NAME } from './homes';
 import { deleteSlot, fmtTime, helpHtml, loadSettings, loadSlot, SKILL_ICONS, RACE_ICONS, UI } from './ui';
 
@@ -67,6 +68,7 @@ function title() {
       <div class="tbtns">
         <button class="btn big" id="tNew">새 게임</button>
         <button class="btn big" id="tLoad">이어하기</button>
+        <button class="btn" id="tStory">이야기 다시 보기</button>
         <button class="btn" id="tHelp">조작법</button>
         <button class="btn" id="tSet">설정 (키 바꾸기)</button>
       </div>
@@ -77,6 +79,7 @@ function title() {
   document.getElementById('tNew')!.onclick = go(() => slots('new'));
   document.getElementById('tLoad')!.onclick = go(() => slots('load'));
   document.getElementById('tHelp')!.onclick = go(help);
+  document.getElementById('tStory')!.onclick = go(() => { clearInterval(animTimer); playIntro().then(title); });
   document.getElementById('tSet')!.onclick = go(() => {
     screen().className = 'on';
     renderSettings(screen(), () => title());
@@ -181,7 +184,10 @@ function create(slot: number) {
       sfx('ui');
       if (st.step < 3) { st.step++; render(); return; }
       const name = st.name.trim() || ({ human: '아서', elf: '실리안', dwarf: '브롬', orc: '그롬', demon: '아자젤' } as Record<RaceId, string>)[st.race];
-      startGame(slot, newHero(name, st.race, st.cls, st.gender));
+      const hero = newHero(name, st.race, st.cls, st.gender);
+      hero.map = 'tutorial'; // 오프닝 컷신 → 튜토리얼 「잿불의 꿈」 → 고향
+      clearInterval(animTimer);
+      playIntro(st.race).then(() => startGame(slot, hero));
     };
   };
   render();
@@ -194,12 +200,6 @@ function startGame(slot: number, hero: ReturnType<typeof newHero>) {
   ui.slot = slot;
   game.start(hero);
   ui.attach(game);
-  if (!hero.flags.intro) {
-    hero.flags.intro = true;
-    const leader = game.npcs.find((n) => n.id === HOME[hero.race].leader);
-    const lines = QUESTS.pro.offerByRace?.[hero.race] ?? QUESTS.pro.offer;
-    if (leader) setTimeout(() => ui.showTalk(leader, lines, () => ui.closeModal()), 900);
-  }
   ui.save();
 }
 

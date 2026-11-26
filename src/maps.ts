@@ -891,9 +891,42 @@ export function buildThrone(): GameMap {
   return m;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 튜토리얼: 잿불의 꿈 (밤의 성소 앞 공터)
+export function buildTutorial(): GameMap {
+  const W = 36, H = 30;
+  const m = new GameMap('tutorial', '잿불의 꿈', W, H, T.DGrass);
+  m.safe = true;
+  m.dark = true;
+  m.ambient = 'rgba(14,8,26,0.55)';
+  m.bgm = 'title';
+  const r = rng(4040);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (Math.hypot((x - 18) / 13, (y - 15) / 10) < 1) m.set(x, y, r() < 0.1 ? T.Flower : T.Grass);
+  m.fillRect(17, 0, 3, 8, T.Dirt);
+  m.fillRect(16, 19, 5, 8, T.Dirt);
+  border(m, r, 2, [3, 2]);
+  for (let y = 0; y < 3; y++) for (let x = 16; x < 21; x++) m.solid[m.idx(x, y)] = 0;
+  m.objects = m.objects.filter((o) => !(o.x > 15 * TS && o.x < 21 * TS && o.y < 4 * TS));
+  for (let i = 0; i < 26; i++) {
+    const x = 3 + ((r() * 30) | 0), y = 3 + ((r() * 24) | 0);
+    if (m.get(x, y) === T.DGrass && !m.solid[m.idx(x, y)]) tree(m, x, y, r() < 0.5 ? 3 : 2);
+  }
+  obj(m, 'o_statue', 18, 9, 1, 1);
+  campfire(m, 18, 11);
+  m.points.start = [px(18), px(24)];
+  m.points.mark = [px(25), px(17)];
+  m.points.exit = [px(18), px(1)];
+  m.npcs.push({ id: 'tutor', name: '성소의 불꽃', sprite: 'fire_spirit', x: px(14), y: px(12) });
+  for (const [x, y] of [[9, 15], [11, 19], [8, 18]]) m.spawns.push({ id: 'dummy', x: px(x), y: px(y), respawn: 2 });
+  m.addObj({ sprite: 'portal', x: px(18), y: foot(1), tag: 'portal', light: 60, req: 'tut_done' });
+  m.exits.push({ x: 17, y: 0, w: 3, h: 1, to: 'HOME', spawn: 'start', label: '꿈에서 깨어나기', locked: 'tut_done', lockMsg: '성소의 불꽃: "아직 꿈에서 깰 때가 아니다. 시험을 마쳐라."' });
+  return m;
+}
+
 export const MAP_BUILDERS: Record<string, () => GameMap> = {
   village: buildVillage, field: buildField, crypt: buildCrypt, fort: buildFort, rift: buildRift,
   elfhome: buildElfHome, dwarfhome: buildDwarfHome, orchome: buildOrcHome, demonhome: buildDemonHome,
   forest: buildForest, grove: buildGrove,
+  tutorial: buildTutorial,
   forge: buildForge, redplains: buildRedPlains, warcamp: buildWarCamp, riftland: buildRiftLand, obsidian: buildObsidian, throne: buildThrone,
 };
