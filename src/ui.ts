@@ -243,7 +243,8 @@ export class UI implements UIHooks {
       return;
     }
     if (prog) {
-      this.showTalk(n, prog.lines, () => this.talk(n));
+      // 같은 NPC에게 이어서 할 이야기(다음 단계·새 퀘스트)가 있을 때만 대화를 이어 간다
+      this.showTalk(n, prog.lines, () => (g.npcMarker(n.id) ? this.talk(n) : this.closeModal()));
       return;
     }
     const offer = g.offerFor(n.id);

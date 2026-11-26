@@ -151,7 +151,8 @@ export class Game {
     window.addEventListener('keydown', (e) => {
       if (!this.running) return;
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
-      if (this.ui.modalOpen()) return;
+      // 대화창·메뉴가 이미 처리한 키(대사 넘기기 등)는 게임 조작으로 쓰지 않는다
+      if (e.defaultPrevented || this.ui.modalOpen()) return;
       const act = actionFor(e.code);
       if (!act) return;
       if (shouldPrevent(e.code)) e.preventDefault();
