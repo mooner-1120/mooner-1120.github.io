@@ -98,6 +98,11 @@ export class Player extends Actor {
   shadowTick = 0;
   pendingHit: { t: number; fn: () => void }[] = [];
   regenAcc = 0;
+  /** 마나 중독 수치 0~100 */
+  manaTox = 0;
+  /** 마나 중독 남은 회복 시간 (0 이면 정상) */
+  toxSick = 0;
+  toxWarned = false;
   stepT = 0;
   stRegenDelay = 0;
 }

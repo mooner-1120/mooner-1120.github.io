@@ -19,6 +19,8 @@ export interface RaceData {
   passive: { name: string; desc: string };
   active: { name: string; desc: string; cd: number };
   bodies: { m: string; f: string };
+  /** 마나 감응도 — regen: 마나 재생 배율, tox: 마나 포션 중독 배율 */
+  mana: { regen: number; tox: number; name: string; desc: string };
 }
 
 export const RACES: Record<RaceId, RaceData> = {
@@ -28,13 +30,15 @@ export const RACES: Record<RaceId, RaceData> = {
     passive: { name: '적응력', desc: '경험치 획득 +10%' },
     active: { name: '불굴의 의지', desc: '3초간 받는 피해 30% 감소', cd: 30 },
     bodies: { m: 'human_m', f: 'human_f' },
+    mana: { regen: 1.0, tox: 1.0, name: '보통', desc: '마나 재생 ×1.0 · 포션 중독 ×1.0' },
   },
   elf: {
     id: 'elf', name: '엘프', concept: '민첩, 마력 친화',
     mods: { dex: 3, int: 2, vit: -1 },
-    passive: { name: '숲의 감각', desc: '이동 속도 +8%, 마나 재생 +15%' },
+    passive: { name: '숲의 감각', desc: '이동 속도 +8%' },
     active: { name: '바람의 걸음', desc: '커서 방향 짧은 거리 순간 이동', cd: 10 },
     bodies: { m: 'elf_m', f: 'elf_f' },
+    mana: { regen: 1.25, tox: 1.4, name: '예민', desc: '마나 재생 ×1.25 · 포션 중독 ×1.4 (마나가 빨리 차지만 쉽게 중독된다)' },
   },
   dwarf: {
     id: 'dwarf', name: '드워프', concept: '단단함, 장인',
@@ -42,6 +46,7 @@ export const RACES: Record<RaceId, RaceData> = {
     passive: { name: '강철 피부', desc: '물리 방어 +10%, 넉백 저항' },
     active: { name: '용광로 심장', desc: '5초간 최대 HP의 30% 회복', cd: 40 },
     bodies: { m: 'dwarf_m', f: 'dwarf_f' },
+    mana: { regen: 0.8, tox: 0.7, name: '둔감', desc: '마나 재생 ×0.8 · 포션 중독 ×0.7 (느리게 차지만 중독에 강하다)' },
   },
   orc: {
     id: 'orc', name: '오크', concept: '야성, 근력',
@@ -49,6 +54,7 @@ export const RACES: Record<RaceId, RaceData> = {
     passive: { name: '전사의 피', desc: 'HP 30% 이하일 때 공격력 +20%' },
     active: { name: '분노의 함성', desc: '주변 적 1.5초 기절 + 6초간 공격력 +20%', cd: 35 },
     bodies: { m: 'orc_m', f: 'orc_f' },
+    mana: { regen: 0.7, tox: 0.85, name: '거침', desc: '마나 재생 ×0.7 · 포션 중독 ×0.85 (마나와 가장 거리가 멀다)' },
   },
   demon: {
     id: 'demon', name: '마족', concept: '마력, 위험한 힘',
@@ -56,6 +62,7 @@ export const RACES: Record<RaceId, RaceData> = {
     passive: { name: '암흑 친화', desc: '주는 피해 +15% (암흑 기운), 받는 성속성 피해 +10%' },
     active: { name: '마계의 계약', desc: '최대 HP 20%를 바쳐 마나 전부 회복', cd: 45 },
     bodies: { m: 'demon_m', f: 'demon_f' },
+    mana: { regen: 1.15, tox: 0.6, name: '마나 체질', desc: '마나 재생 ×1.15 · 포션 중독 ×0.6 (마나에 가장 강하다)' },
   },
 };
 
@@ -280,6 +287,8 @@ export interface Consumable {
   price: number;
   heal?: number;
   mana?: number;
+  /** 마나 중독 수치 (종족 배율 적용 전, 100 이 되면 중독) */
+  tox?: number;
   cure?: boolean;
   buff?: { atkPct?: number; dur: number };
   recall?: boolean;
@@ -288,8 +297,8 @@ export interface Consumable {
 export const CONSUMABLES: Record<string, Consumable> = {
   hp_s: { id: 'hp_s', name: '작은 체력 포션', icon: 'flask_red', desc: 'HP 80 회복', price: 15, heal: 80 },
   hp_l: { id: 'hp_l', name: '큰 체력 포션', icon: 'flask_big_red', desc: 'HP 220 회복', price: 45, heal: 220 },
-  mp_s: { id: 'mp_s', name: '작은 마나 포션', icon: 'flask_blue', desc: 'MP 50 회복', price: 15, mana: 50 },
-  mp_l: { id: 'mp_l', name: '큰 마나 포션', icon: 'flask_big_blue', desc: 'MP 140 회복', price: 45, mana: 140 },
+  mp_s: { id: 'mp_s', name: '작은 마나 포션', icon: 'flask_blue', desc: 'MP 50 회복 · 마나 중독 +30', price: 15, mana: 50, tox: 30 },
+  mp_l: { id: 'mp_l', name: '큰 마나 포션', icon: 'flask_big_blue', desc: 'MP 140 회복 · 마나 중독 +55', price: 45, mana: 140, tox: 55 },
   antidote: { id: 'antidote', name: '해독제', icon: 'flask_green', desc: '중독·화상·둔화 해제', price: 12, cure: true },
   meat: { id: 'meat', name: '구운 고기', icon: 'i_food', desc: '60초간 공격력 +15%', price: 30, buff: { atkPct: 15, dur: 60 } },
   bomb: { id: 'bomb', name: '폭탄', icon: 'bomb_f0', desc: '커서 위치에 던져 폭발 피해', price: 25, bomb: true },

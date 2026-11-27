@@ -53,6 +53,11 @@ img.flip { transform: scaleX(-1); }
 @keyframes blink { to { filter: brightness(1.6); } }
 .bar.mp i { background: linear-gradient(#8cc4f0 0 30%, #5698cc 30% 75%, #314152 75%); }
 .bar.st { height: 7px; }
+.bar.tox { height: 9px; }
+.bar.tox i { background: linear-gradient(#9cc4ff 0 30%, #3d6cff 30% 75%, #1c2a66 75%); }
+.bar.tox span { font-size: 9px; }
+.bar.tox.sick { animation: toxpulse 0.8s infinite alternate; }
+@keyframes toxpulse { from { box-shadow: 0 0 0 #3d6cff; } to { box-shadow: 0 0 6px #3d6cff; } }
 .bar.st i { background: #facb3e; }
 #buffs { display: flex; gap: 3px; flex-wrap: wrap; }
 .buff { position: relative; background: #1a1214cc; border: 1px solid var(--edge); padding: 1px 3px; font-size: 10px; font-family: Galmuri9, monospace; }

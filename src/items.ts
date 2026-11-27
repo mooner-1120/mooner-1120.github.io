@@ -273,7 +273,7 @@ export function derive(h: Hero, buffs: { atkPct?: number; defPct?: number; ms?: 
     aspd: 1 + st.dex * 0.006 + aspd / 100,
     ms: msv,
     atkPct,
-    mpRegen: (1.2 + st.int * 0.08 + st.wis * 0.06) * (h.race === 'elf' ? 1.15 : 1),
+    mpRegen: (0.55 + st.int * 0.045 + st.wis * 0.035) * RACES[h.race].mana.regen,
     hpRegen: 0.6 + st.vit * 0.05,
     maxSt: 100,
   };

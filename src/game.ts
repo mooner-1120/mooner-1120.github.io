@@ -654,10 +654,11 @@ export class Game {
       const k = p.regenAcc;
       p.regenAcc = 0;
       const inCombat = this.enemies.some((e) => e.aggro && !e.dead);
-      p.mp = Math.min(d.maxMp, p.mp + d.mpRegen * k * (inCombat ? 1 : 2.5));
+      if (p.toxSick <= 0) p.mp = Math.min(d.maxMp, p.mp + d.mpRegen * k * (inCombat ? 1 : 1.6));
       if (!inCombat || this.map.safe) this.healPlayer(d.hpRegen * k * (this.map.safe ? 8 : 2), false);
       else this.healPlayer(d.hpRegen * k * 0.3, false);
     }
+    this.tickManaTox(dt);
     p.stRegenDelay = Math.max(0, p.stRegenDelay - dt);
     if (p.stRegenDelay <= 0) p.st = Math.min(d.maxSt, p.st + 32 * dt);
 
@@ -786,7 +787,7 @@ export class Game {
       }
     }
     if (p.castLock > 0) mvx = mvy = 0;
-    const sp = this.der.ms * p.slowMul * (p.block > 0 ? 0.4 : 1);
+    const sp = this.der.ms * p.slowMul * (p.block > 0 ? 0.4 : 1) * (p.toxSick > 0 ? 0.6 : 1);
     p.moving = (mvx !== 0 || mvy !== 0) && p.canMove;
     if (p.moving) {
       const ox = p.x, oy = p.y;
@@ -1067,6 +1068,7 @@ export class Game {
     }
     if ((p.cds[s.id] ?? 0) > 0) { sfx('deny'); return; }
     if (p.has('silence')) { this.ui.toast('침묵 상태라 스킬을 쓸 수 없다', '#c37bff'); sfx('deny'); return; }
+    if (p.toxSick > 0) { this.ui.toast('마나 중독 상태라 스킬을 쓸 수 없다', '#4f8bff'); sfx('deny'); return; }
     if (p.mp < s.mp) { this.ui.toast('마나가 부족하다', '#6af'); sfx('deny'); return; }
     let [ax, ay] = this.aimPoint(s.range + 40);
     const ang = ANG(p.x, p.y - 8, ax, ay);
@@ -1292,6 +1294,7 @@ export class Game {
         if (p.hp <= cost + 1) { this.ui.toast('HP가 부족해 계약할 수 없다', '#f66'); sfx('deny'); return; }
         p.hp -= cost;
         p.mp = this.der.maxMp;
+        this.addManaTox(35);
         sfx('teleport');
         this.text(p.x, p.y - 26, '-' + Math.round(cost), '#c37bff', false);
         for (let i = 0; i < 18; i++) this.parts.push({ x: p.x + Math.random() * 20 - 10, y: p.y, z: 0, vx: 0, vy: 0, vz: 30 + Math.random() * 30, life: 0.7, max: 0.7, color: i % 2 ? '#9f294e' : '#5698cc', size: 1, kind: 'spark' });
@@ -1341,6 +1344,7 @@ export class Game {
     if (!c || p.dead) return;
     if (countOf(this.hero, 'use', id) <= 0) { this.ui.toast(`${c.name}이(가) 없다`, '#f99'); sfx('deny'); return; }
     if ((p.cds['item_' + id] ?? 0) > 0) return;
+    if (c.mana && p.toxSick > 0) { this.ui.toast('마나 중독 중에는 마나 포션을 마실 수 없다', '#4f8bff'); sfx('deny'); return; }
     if (c.recall) {
       if (this.map.id === HOME[this.hero.race].map) { this.ui.toast('이미 고향 마을에 있다', '#ff9'); return; }
       if (this.boss && !this.boss.dead && this.boss.aggro) { this.ui.toast('보스전 중에는 귀환할 수 없다!', '#f66'); return; }
@@ -1357,10 +1361,51 @@ export class Game {
     p.cds['item_' + id] = 0.5;
     sfx('potion');
     if (c.heal) { this.healPlayer(c.heal, true); this.tutorial.event('potion'); }
-    if (c.mana) { p.mp = Math.min(this.der.maxMp, p.mp + c.mana); this.text(p.x, p.y - 30, '+' + c.mana, '#6ab8ff', false); }
+    if (c.mana) {
+      p.mp = Math.min(this.der.maxMp, p.mp + c.mana);
+      this.text(p.x, p.y - 30, '+' + c.mana, '#6ab8ff', false);
+      if (c.tox) this.addManaTox(c.tox);
+    }
     if (c.cure) for (const k of ['poison', 'burn', 'slow'] as StatusId[]) delete p.status[k];
     if (c.buff) this.addBuff('food', { t: c.buff.dur, max: c.buff.dur, name: c.name, atkPct: c.buff.atkPct, icon: c.icon });
     this.ui.hudDirty();
+  }
+
+  /** 마나 포션 중독 — 종족 감응도에 따라 쌓이고, 100 이 되면 중독된다 */
+  addManaTox(n: number): void {
+    const p = this.p;
+    if (p.toxSick > 0) return;
+    p.manaTox = Math.min(100, p.manaTox + n * RACES[this.hero.race].mana.tox);
+    if (p.manaTox >= 100) {
+      p.toxSick = 20;
+      p.manaTox = 100;
+      sfx('hurt');
+      this.shake(3);
+      this.text(p.x, p.y - 34, '마나 중독!', '#4f8bff', true);
+      this.ui.toast('마나 중독! 핏줄이 푸르게 부풀어 오른다 — 스킬 불가, 받는 피해 치명타, 이동 둔화 (20초)', '#4f8bff');
+      for (let i = 0; i < 16; i++) this.parts.push({ x: p.x + Math.random() * 14 - 7, y: p.y - 4, z: 0, vx: 0, vy: 0, vz: 20 + Math.random() * 30, life: 0.8, max: 0.8, color: i % 2 ? '#3d6cff' : '#9cc4ff', size: 1, kind: 'spark' });
+    } else if (p.manaTox >= 65 && !p.toxWarned) {
+      p.toxWarned = true;
+      this.ui.toast('몸속 마나가 끓기 시작한다… 마나 포션을 더 마시면 중독된다', '#8fb4ff');
+    }
+    this.ui.hudDirty();
+  }
+
+  tickManaTox(dt: number): void {
+    const p = this.p;
+    if (p.toxSick > 0) {
+      p.toxSick = Math.max(0, p.toxSick - dt);
+      p.manaTox = (p.toxSick / 20) * 100;
+      if (p.toxSick <= 0) {
+        p.manaTox = 0;
+        p.toxWarned = false;
+        this.text(p.x, p.y - 30, '마나 중독 회복', '#9cc4ff', false);
+        this.ui.toast('핏줄의 푸른 기운이 가라앉았다', '#9cc4ff');
+      }
+    } else if (p.manaTox > 0) {
+      p.manaTox = Math.max(0, p.manaTox - dt * 2.5);
+      if (p.manaTox < 50) p.toxWarned = false;
+    }
   }
 
   healPlayer(n: number, show: boolean): void {
@@ -1505,10 +1550,13 @@ export class Game {
       }
     }
     for (const b of Object.values(p.buffs)) if (b.dmgRed) dmg *= 1 - b.dmgRed;
+    // 마나 중독: 핏줄이 약해져 모든 공격이 치명타로 들어온다
+    const toxCrit = p.toxSick > 0;
+    if (toxCrit) dmg *= 1.6;
     dmg = Math.max(1, Math.round(dmg * (0.95 + Math.random() * 0.1)));
     p.hp -= dmg;
     p.flash = 0.25;
-    this.text(p.x, p.y - 30, '-' + dmg, '#ff5a5a', dmg > this.der.maxHp * 0.15);
+    this.text(p.x, p.y - 30, (toxCrit ? '치명! -' : '-') + dmg, toxCrit ? '#5f9bff' : '#ff5a5a', toxCrit || dmg > this.der.maxHp * 0.15);
     sfx('hurt');
     this.shake(Math.min(6, 2 + dmg / 20));
     this.hitstop = Math.max(this.hitstop, 0.05);
@@ -1543,6 +1591,8 @@ export class Game {
     p.dead = false;
     p.status = {};
     p.buffs = {};
+    p.manaTox = 0;
+    p.toxSick = 0;
     this.recalc();
     p.hp = this.der.maxHp;
     p.mp = this.der.maxMp;

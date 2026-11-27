@@ -127,6 +127,54 @@ export function silhouette(name: string, color: string): HTMLCanvasElement | nul
   return cv;
 }
 
+// 마나 중독 핏줄 — 스프라이트 모양 안에만 갈라지는 푸른 선을 그린다
+const veinCache = new Map<string, HTMLCanvasElement>();
+export function veins(name: string): HTMLCanvasElement | null {
+  const c = veinCache.get(name);
+  if (c) return c;
+  const f = frames[name];
+  if (!f) return null;
+  const [w, h] = [f[2], f[3]];
+  const cv = document.createElement('canvas');
+  cv.width = w;
+  cv.height = h;
+  const g = cv.getContext('2d')!;
+  let seed = 7;
+  for (const ch of name) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
+  g.fillStyle = '#2f5cff';
+  const walk = (x: number, y: number, n: number, depth: number) => {
+    let dx = rnd() < 0.5 ? -1 : 1;
+    for (let i = 0; i < n; i++) {
+      g.fillRect(x, y, 1, 1);
+      y += rnd() < 0.7 ? 1 : 0;
+      if (rnd() < 0.45) x += dx;
+      if (rnd() < 0.2) dx = -dx;
+      if (depth < 2 && rnd() < 0.12) walk(x, y, n - i, depth + 1);
+    }
+  };
+  for (let i = 0; i < Math.max(3, Math.round(w / 4)); i++) walk(Math.floor(rnd() * w), Math.floor(h * 0.2 + rnd() * h * 0.4), Math.round(h * 0.5), 0);
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(atlasImg, f[0], f[1], w, h, 0, 0, w, h);
+  veinCache.set(name, cv);
+  return cv;
+}
+
+export function drawVeins(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, flip: boolean, alpha: number): void {
+  const cv = veins(name);
+  if (!cv) return;
+  const dx = Math.round(x - cv.width / 2), dy = Math.round(y - cv.height);
+  ctx.globalAlpha = alpha;
+  if (flip) {
+    ctx.save();
+    ctx.translate(dx + cv.width, dy);
+    ctx.scale(-1, 1);
+    ctx.drawImage(cv, 0, 0);
+    ctx.restore();
+  } else ctx.drawImage(cv, dx, dy);
+  ctx.globalAlpha = 1;
+}
+
 export function drawSil(
   ctx: CanvasRenderingContext2D,
   name: string,

@@ -56,6 +56,7 @@ export class UI implements UIHooks {
             <div class="nm"><span id="hname"></span> <span id="hlv"></span></div>
             <div class="bar hp"><i></i><span></span></div>
             <div class="bar mp"><i></i><span></span></div>
+            <div class="bar tox hidden"><i></i><span></span></div>
             <div class="bar st"><i></i></div>
             <div id="buffs"></div>
           </div>
@@ -279,7 +280,7 @@ export class UI implements UIHooks {
       opts.push({ label: '장비 구매', fn: () => this.openShop(n.id) });
     } else if (SHOP_KIND[n.id]) opts.push({ label: '상점', fn: () => this.openShop(n.id) });
     if (HEALERS.has(n.id)) {
-      opts.push({ label: '치료 받기', fn: () => { this.g.p.hp = this.g.der.maxHp; this.g.p.mp = this.g.der.maxMp; this.g.p.status = {}; sfx('heal'); this.toast('상처가 모두 나았다', '#7bf06a'); this.closeModal(); } });
+      opts.push({ label: '치료 받기', fn: () => { this.g.p.hp = this.g.der.maxHp; this.g.p.mp = this.g.der.maxMp; this.g.p.status = {}; this.g.p.manaTox = 0; this.g.p.toxSick = 0; sfx('heal'); this.toast('상처가 모두 나았다', '#7bf06a'); this.closeModal(); } });
       opts.push({ label: '여정 기록 (저장)', fn: () => { this.g.saveHero(); this.save(); sfx('holy'); this.toast('저장되었다', '#facb3e'); this.closeModal(); } });
       opts.push({ label: '능력치·스킬 초기화 (200G)', fn: () => this.respec() });
     }
@@ -577,7 +578,7 @@ export class UI implements UIHooks {
           <div class="drow"><span>회피율</span><b>${(d.evade * 100).toFixed(1)}%</b></div>
           <div class="drow"><span>공격 속도</span><b>×${d.aspd.toFixed(2)}</b></div>
           <div class="drow"><span>이동 속도</span><b>${Math.round(d.ms)}</b></div>
-          <div class="race"><b>${r.name} 패시브 · ${r.passive.name}</b><br><span class="dim">${r.passive.desc}</span><br><b>종족 스킬 [T] · ${r.active.name}</b><br><span class="dim">${r.active.desc} (재사용 ${r.active.cd}초)</span></div>
+          <div class="race"><b>${r.name} 패시브 · ${r.passive.name}</b><br><span class="dim">${r.passive.desc}</span><br><b>마나 감응도 · ${r.mana.name}</b><br><span class="dim">${r.mana.desc}</span><br><b>종족 스킬 [T] · ${r.active.name}</b><br><span class="dim">${r.active.desc} (재사용 ${r.active.cd}초)</span></div>
         </div>
       </div>`;
   }
@@ -922,6 +923,11 @@ export class UI implements UIHooks {
     setBar('#bars .hp', p.hp, d.maxHp);
     setBar('#bars .mp', p.mp, d.maxMp);
     setBar('#bars .st', p.st, d.maxSt, false);
+    const tox = $('#bars .tox');
+    tox.classList.toggle('hidden', p.manaTox <= 0);
+    tox.classList.toggle('sick', p.toxSick > 0);
+    (tox.firstElementChild as HTMLElement).style.width = Math.min(100, p.manaTox) + '%';
+    (tox.querySelector('span') as HTMLElement).textContent = p.toxSick > 0 ? `마나 중독 ${Math.ceil(p.toxSick)}초` : `마나 중독도 ${Math.floor(p.manaTox)}%`;
     $('#bars .hp').classList.toggle('low', p.hp / d.maxHp < 0.3);
     ($('#xpbar i') as HTMLElement).style.width = (h.xp / xpToNext(h.level)) * 100 + '%';
     // 스킬 쿨다운
@@ -933,7 +939,7 @@ export class UI implements UIHooks {
       else if (act === 'race') { cd = p.cds.race ?? 0; max = RACES[h.race].active.cd; }
       else if (act[0] === 's') {
         const s = c.skills[+act[1]];
-        cd = p.cds[s.id] ?? 0; max = s.cd; off = (h.skillLv[s.id] ?? 0) <= 0 || p.mp < s.mp;
+        cd = p.cds[s.id] ?? 0; max = s.cd; off = (h.skillLv[s.id] ?? 0) <= 0 || p.mp < s.mp || p.toxSick > 0;
         if ((h.skillLv[s.id] ?? 0) <= 0) num = `Lv${s.unlock}`;
       } else {
         const q = h.quick[+act[1]];

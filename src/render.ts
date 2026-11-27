@@ -1,5 +1,5 @@
 // 그리기: 저해상도 월드 캔버스 → 정수 배율로 확대 → 고해상도 글자 오버레이
-import { anim, drawFrame, drawRotated, drawSil, frame } from './assets';
+import { anim, drawFrame, drawRotated, drawSil, drawVeins, frame } from './assets';
 import { CLASSES } from './data';
 import { Enemy, Hazard, NpcEnt, STATUS_COLORS, StatusId } from './entities';
 import type { Game } from './game';
@@ -386,6 +386,10 @@ function drawPlayer(g: Game): void {
     drawFrame(w, f, p.x, p.y, { flip: p.flip });
     w.globalAlpha = 1;
     if (p.flash > 0) drawSil(w, f, '#ff4040', p.x, p.y, p.flip, Math.min(0.8, p.flash * 4));
+    if (p.toxSick > 0) {
+      drawSil(w, f, '#3d6cff', p.x, p.y, p.flip, 0.14 + Math.sin(g.time * 6) * 0.06);
+      drawVeins(w, f, p.x, p.y, p.flip, 0.75 + Math.sin(g.time * 6) * 0.2);
+    } else if (p.manaTox >= 65) drawVeins(w, f, p.x, p.y, p.flip, 0.25 + Math.sin(g.time * 4) * 0.1);
     if (p.has('poison')) drawSil(w, f, '#6ad040', p.x, p.y, p.flip, 0.2);
     if (p.has('slow')) drawSil(w, f, '#9be3ff', p.x, p.y, p.flip, 0.3);
     if (p.has('burn')) drawSil(w, f, '#ff8a2e', p.x, p.y, p.flip, 0.2 + Math.sin(g.time * 20) * 0.1);

@@ -136,7 +136,7 @@ function create(slot: number) {
         const d = RACES[r];
         const mods = (Object.entries(d.mods) as [StatKey, number][]).map(([k, v]) => `<span class="${v > 0 ? 'up' : 'down'}">${STAT_NAMES[k]} ${v > 0 ? '+' : ''}${v}</span>`).join(' ');
         return `<div class="card ${st.race === r ? 'sel' : ''}" data-r="${r}">${animImg(d.bodies[st.gender], 'idle', 4)}<h3>${d.name}</h3><div class="dim">${d.concept}</div><div class="home">시작: ${HOME[r].name}</div><div class="mods">${mods}</div>
-          <div class="pas"><b>${d.passive.name}</b><br>${d.passive.desc}</div><div class="pas">${img(RACE_ICONS[r], 1)} <b>${d.active.name}</b><br>${d.active.desc}</div></div>`;
+          <div class="pas"><b>${d.passive.name}</b><br>${d.passive.desc}</div><div class="pas"><b>마나 감응도 · ${d.mana.name}</b><br>${d.mana.desc}</div><div class="pas">${img(RACE_ICONS[r], 1)} <b>${d.active.name}</b><br>${d.active.desc}</div></div>`;
       }).join('')}</div>`;
     } else if (st.step === 1) {
       body = `<div class="cards">${(Object.keys(CLASSES) as ClassId[]).map((c) => {
