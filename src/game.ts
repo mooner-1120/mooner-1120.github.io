@@ -457,10 +457,27 @@ export class Game {
     const statue = m.objects.find((o) => o.tag === 'save');
     if (statue && m.safe) {
       const sx = Math.floor(statue.x / TS), sy = Math.floor((statue.y - 1) / TS);
-      for (const [dx, dy] of [[2, 0], [-2, 0], [2, 1], [-2, 1], [0, 2], [3, 0], [-3, 0]]) {
-        const tx = sx + dx, ty = sy + dy;
-        if (!m.inb(tx, ty) || m.solid[m.idx(tx, ty)]) continue;
-        if (m.exits.some((e) => tx >= e.x - 1 && tx <= e.x + e.w && ty >= e.y - 1 && ty <= e.y + e.h)) continue;
+      // NPC(돌아다니는 범위 포함)와 여신상에서 충분히 떨어진, 걸어갈 수 있는 가장 가까운 칸
+      const cands: [number, number, number][] = [];
+      for (let dy = -7; dy <= 7; dy++)
+        for (let dx = -7; dx <= 7; dx++) {
+          const tx = sx + dx, ty = sy + dy, d = Math.hypot(dx, dy);
+          if (d < 2.5 || !m.inb(tx, ty) || m.solid[m.idx(tx, ty)] || m.solid[m.idx(tx, ty + 1)]) continue;
+          const cx = tx * TS + 8, cy = ty * TS + 8;
+          if (m.npcs.some((n) => Math.hypot(n.x - cx, n.y - cy) < 72 + (n.wander ?? 0))) continue;
+          if (m.exits.some((e) => tx >= e.x - 2 && tx <= e.x + e.w + 1 && ty >= e.y - 2 && ty <= e.y + e.h + 1)) continue;
+          // 벽·건물 옆을 우선 (길 한가운데를 막지 않게)
+          const wall = [[1, 0], [-1, 0], [0, -1]].some(([ax, ay]) => m.inb(tx + ax, ty + ay) && m.solid[m.idx(tx + ax, ty + ay)]);
+          cands.push([tx, ty, d + (wall ? 0 : 4)]);
+        }
+      cands.sort((a, b) => a[2] - b[2]);
+      for (const [tx, ty] of cands) {
+        if (!m.findPath(statue.x, statue.y + 12, tx * TS + 8, (ty + 1) * TS + 8)) continue;
+        // 놓았을 때 여신상에서 모든 출구로 가는 길이 남아 있어야 한다
+        m.solid[m.idx(tx, ty)] = 1;
+        const ok = m.exits.every((e) => m.findPath(statue.x, statue.y + 12, (e.x + e.w / 2) * TS, (e.y + e.h / 2) * TS, 6000));
+        m.solid[m.idx(tx, ty)] = 0;
+        if (!ok) continue;
         m.addObj({ sprite: 'chest_empty_open_anim_f0', x: tx * TS + 8, y: (ty + 1) * TS, solid: { w: 1, h: 1 }, tag: 'stash' });
         break;
       }
