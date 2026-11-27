@@ -302,7 +302,7 @@ export function derive(h: Hero, buffs: { atkPct?: number; defPct?: number; ms?: 
   }
   for (const k of Object.keys(st) as StatKey[]) st[k] = Math.max(1, st[k]);
   const maxHp = Math.round(100 + st.vit * 12 + h.level * 8 + hp);
-  const maxMp = Math.round(50 + st.int * 8 + st.wis * 3 + h.level * 4 + mp);
+  const maxMp = Math.round(30 + st.int * 5 + st.wis * 2 + h.level * 3 + mp * 0.7);
   atkPct += buffs.atkPct ?? 0;
   let defv = def + st.vit * 0.5;
   if (h.race === 'dwarf') defv *= 1.1;

@@ -101,10 +101,10 @@ export const CLASSES: Record<ClassId, ClassData> = {
     basic: { name: '3연타 콤보', kind: 'melee', range: 22, interval: 0.48, combo: 3, element: 'phys', magic: false },
     weapons: ['rusty_sword'], offhand: 'wood_shield',
     skills: [
-      { key: 'Q', id: 'block', name: '방패 막기', desc: '1.2초간 정면 피해 70% 감소. 막기 직후 0.3초 안에 맞으면 패링: 적 기절 + 반격', mp: 8, cd: 5, coeff: 1.6, unlock: 1, shape: 'self', range: 0, element: 'phys' },
-      { key: 'W', id: 'dash_slash', name: '돌진 베기', desc: '커서 방향으로 돌진하며 경로의 적을 베고 밀쳐낸다', mp: 14, cd: 6, coeff: 1.8, unlock: 2, shape: 'dir', range: 64, element: 'phys' },
-      { key: 'E', id: 'war_cry', name: '전투 함성', desc: '8초간 방어력 +40%, 주변 적의 주의를 끈다', mp: 18, cd: 18, coeff: 0, unlock: 3, shape: 'self', range: 0, element: 'phys' },
-      { key: 'R', id: 'earth_split', name: '대지 가르기', desc: '커서 방향 부채꼴 광역 피해 + 0.8초 기절', mp: 35, cd: 16, coeff: 3.2, unlock: 5, shape: 'dir', range: 78, element: 'phys' },
+      { key: 'Q', id: 'block', name: '방패 막기', desc: '1.2초간 정면 피해 70% 감소. 막기 직후 0.3초 안에 맞으면 패링: 적 기절 + 반격', mp: 8, cd: 3, coeff: 1.6, unlock: 1, shape: 'self', range: 0, element: 'phys' },
+      { key: 'W', id: 'dash_slash', name: '돌진 베기', desc: '커서 방향으로 돌진하며 경로의 적을 베고 밀쳐낸다', mp: 14, cd: 3.5, coeff: 1.8, unlock: 2, shape: 'dir', range: 64, element: 'phys' },
+      { key: 'E', id: 'war_cry', name: '전투 함성', desc: '8초간 방어력 +40%, 주변 적의 주의를 끈다', mp: 18, cd: 10, coeff: 0, unlock: 3, shape: 'self', range: 0, element: 'phys' },
+      { key: 'R', id: 'earth_split', name: '대지 가르기', desc: '커서 방향 부채꼴 광역 피해 + 0.8초 기절', mp: 35, cd: 9, coeff: 3.2, unlock: 5, shape: 'dir', range: 78, element: 'phys' },
     ],
   },
   rogue: {
@@ -113,10 +113,10 @@ export const CLASSES: Record<ClassId, ClassData> = {
     basic: { name: '빠른 2연타', kind: 'melee', range: 18, interval: 0.32, combo: 2, element: 'phys', magic: false },
     weapons: ['knife'], offhand: 'offhand_knife',
     skills: [
-      { key: 'Q', id: 'ambush', name: '암습', desc: '커서 근처 적 뒤로 순간이동 후 치명타 일격', mp: 12, cd: 6, coeff: 2.2, unlock: 1, shape: 'target', range: 110, element: 'phys' },
-      { key: 'W', id: 'poison', name: '독 바르기', desc: '10초간 공격이 중독(초당 피해 3초)을 건다', mp: 14, cd: 14, coeff: 0.35, unlock: 2, shape: 'self', range: 0, element: 'poison' },
-      { key: 'E', id: 'smoke', name: '연막탄', desc: '3초간 은신(적이 놓침) + 이동속도 증가, 다음 공격 확정 치명타', mp: 16, cd: 15, coeff: 0, unlock: 3, shape: 'self', range: 0, element: 'phys' },
-      { key: 'R', id: 'shadow_dance', name: '그림자 난무', desc: '주변 적들을 무적 상태로 1.2초간 연속으로 벤다', mp: 35, cd: 18, coeff: 0.9, unlock: 5, shape: 'self', range: 64, element: 'dark' },
+      { key: 'Q', id: 'ambush', name: '암습', desc: '커서 근처 적 뒤로 순간이동 후 치명타 일격', mp: 12, cd: 3.5, coeff: 2.2, unlock: 1, shape: 'target', range: 110, element: 'phys' },
+      { key: 'W', id: 'poison', name: '독 바르기', desc: '10초간 공격이 중독(초당 피해 3초)을 건다', mp: 14, cd: 7.5, coeff: 0.35, unlock: 2, shape: 'self', range: 0, element: 'poison' },
+      { key: 'E', id: 'smoke', name: '연막탄', desc: '3초간 은신(적이 놓침) + 이동속도 증가, 다음 공격 확정 치명타', mp: 16, cd: 8, coeff: 0, unlock: 3, shape: 'self', range: 0, element: 'phys' },
+      { key: 'R', id: 'shadow_dance', name: '그림자 난무', desc: '주변 적들을 무적 상태로 1.2초간 연속으로 벤다', mp: 35, cd: 10, coeff: 0.9, unlock: 5, shape: 'self', range: 64, element: 'dark' },
     ],
   },
   mage: {
@@ -125,10 +125,10 @@ export const CLASSES: Record<ClassId, ClassData> = {
     basic: { name: '마력탄', kind: 'bolt', range: 130, interval: 0.55, combo: 1, element: 'light', magic: true },
     weapons: ['apprentice_staff'], offhand: 'tome',
     skills: [
-      { key: 'Q', id: 'fireball', name: '화염구', desc: '날아가 폭발하는 화염구. 화상을 입힌다', mp: 12, cd: 3, coeff: 1.9, unlock: 1, shape: 'dir', range: 150, element: 'fire' },
-      { key: 'W', id: 'frost_zone', name: '빙결 지대', desc: '지정 위치에 4초간 둔화 + 냉기 피해 장판', mp: 18, cd: 9, coeff: 0.45, unlock: 2, shape: 'point', range: 140, element: 'ice' },
-      { key: 'E', id: 'blink', name: '순간 이동', desc: '커서 방향으로 짧게 순간 이동', mp: 10, cd: 6, coeff: 0, unlock: 3, shape: 'point', range: 80, element: 'phys' },
-      { key: 'R', id: 'meteor', name: '유성우', desc: '지정 위치에 유성 7개가 떨어진다', mp: 45, cd: 20, coeff: 2.0, unlock: 5, shape: 'point', range: 150, element: 'fire' },
+      { key: 'Q', id: 'fireball', name: '화염구', desc: '날아가 폭발하는 화염구. 화상을 입힌다', mp: 12, cd: 1.5, coeff: 1.9, unlock: 1, shape: 'dir', range: 150, element: 'fire' },
+      { key: 'W', id: 'frost_zone', name: '빙결 지대', desc: '지정 위치에 4초간 둔화 + 냉기 피해 장판', mp: 18, cd: 5, coeff: 0.45, unlock: 2, shape: 'point', range: 140, element: 'ice' },
+      { key: 'E', id: 'blink', name: '순간 이동', desc: '커서 방향으로 짧게 순간 이동', mp: 10, cd: 3.5, coeff: 0, unlock: 3, shape: 'point', range: 80, element: 'phys' },
+      { key: 'R', id: 'meteor', name: '유성우', desc: '지정 위치에 유성 7개가 떨어진다', mp: 45, cd: 11, coeff: 2.0, unlock: 5, shape: 'point', range: 150, element: 'fire' },
     ],
   },
   archer: {
@@ -137,10 +137,10 @@ export const CLASSES: Record<ClassId, ClassData> = {
     basic: { name: '사격', kind: 'arrow', range: 150, interval: 0.5, combo: 1, element: 'phys', magic: false },
     weapons: ['short_bow'], offhand: 'quiver',
     skills: [
-      { key: 'Q', id: 'triple', name: '삼연사', desc: '커서 방향으로 화살 3발을 부채꼴로 쏜다', mp: 10, cd: 3, coeff: 1.2, unlock: 1, shape: 'dir', range: 160, element: 'phys' },
-      { key: 'W', id: 'trap', name: '덫 설치', desc: '밟은 적을 2.5초 속박하고 피해를 준다', mp: 12, cd: 8, coeff: 1.5, unlock: 2, shape: 'point', range: 90, element: 'phys' },
-      { key: 'E', id: 'back_shot', name: '후퇴 사격', desc: '뒤로 구르며 커서 방향으로 강한 화살을 쏜다', mp: 12, cd: 6, coeff: 1.8, unlock: 3, shape: 'dir', range: 160, element: 'phys' },
-      { key: 'R', id: 'arrow_rain', name: '폭풍 화살비', desc: '넓은 범위에 3초간 화살비를 퍼붓는다', mp: 40, cd: 18, coeff: 0.55, unlock: 5, shape: 'point', range: 150, element: 'phys' },
+      { key: 'Q', id: 'triple', name: '삼연사', desc: '커서 방향으로 화살 3발을 부채꼴로 쏜다', mp: 10, cd: 1.5, coeff: 1.2, unlock: 1, shape: 'dir', range: 160, element: 'phys' },
+      { key: 'W', id: 'trap', name: '덫 설치', desc: '밟은 적을 2.5초 속박하고 피해를 준다', mp: 12, cd: 4.5, coeff: 1.5, unlock: 2, shape: 'point', range: 90, element: 'phys' },
+      { key: 'E', id: 'back_shot', name: '후퇴 사격', desc: '뒤로 구르며 커서 방향으로 강한 화살을 쏜다', mp: 12, cd: 3.5, coeff: 1.8, unlock: 3, shape: 'dir', range: 160, element: 'phys' },
+      { key: 'R', id: 'arrow_rain', name: '폭풍 화살비', desc: '넓은 범위에 3초간 화살비를 퍼붓는다', mp: 40, cd: 10, coeff: 0.55, unlock: 5, shape: 'point', range: 150, element: 'phys' },
     ],
   },
   cleric: {
@@ -149,10 +149,10 @@ export const CLASSES: Record<ClassId, ClassData> = {
     basic: { name: '메이스 타격', kind: 'melee', range: 20, interval: 0.55, combo: 2, element: 'holy', magic: false },
     weapons: ['mace'], offhand: 'holy_book',
     skills: [
-      { key: 'Q', id: 'heal', name: '치유의 빛', desc: '신앙에 비례해 HP 회복', mp: 16, cd: 6, coeff: 1.0, unlock: 1, shape: 'self', range: 0, element: 'holy' },
-      { key: 'W', id: 'barrier', name: '성스러운 방벽', desc: '1.5초간 무적 보호막', mp: 18, cd: 14, coeff: 0, unlock: 2, shape: 'self', range: 0, element: 'holy' },
-      { key: 'E', id: 'purify', name: '정화', desc: '상태이상 해제 + 주변 적에게 성속성 피해', mp: 12, cd: 8, coeff: 1.0, unlock: 3, shape: 'self', range: 48, element: 'holy' },
-      { key: 'R', id: 'judgment', name: '심판의 망치', desc: '지정 위치에 성속성 광역 + 기절. 언데드 2배', mp: 40, cd: 16, coeff: 3.0, unlock: 5, shape: 'point', range: 130, element: 'holy' },
+      { key: 'Q', id: 'heal', name: '치유의 빛', desc: '신앙에 비례해 HP 회복', mp: 16, cd: 3.5, coeff: 1.0, unlock: 1, shape: 'self', range: 0, element: 'holy' },
+      { key: 'W', id: 'barrier', name: '성스러운 방벽', desc: '1.5초간 무적 보호막', mp: 18, cd: 7.5, coeff: 0, unlock: 2, shape: 'self', range: 0, element: 'holy' },
+      { key: 'E', id: 'purify', name: '정화', desc: '상태이상 해제 + 주변 적에게 성속성 피해', mp: 12, cd: 4.5, coeff: 1.0, unlock: 3, shape: 'self', range: 48, element: 'holy' },
+      { key: 'R', id: 'judgment', name: '심판의 망치', desc: '지정 위치에 성속성 광역 + 기절. 언데드 2배', mp: 40, cd: 9, coeff: 3.0, unlock: 5, shape: 'point', range: 130, element: 'holy' },
     ],
   },
 };
