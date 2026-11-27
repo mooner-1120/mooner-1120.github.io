@@ -725,7 +725,7 @@ export class Game {
       p.kbx *= Math.pow(0.002, dt);
       p.kby *= Math.pow(0.002, dt);
     }
-    this.updateLock();
+    this.updateLock(dt);
     if (!p.canAct) return;
 
     // 목표 처리
@@ -921,11 +921,16 @@ export class Game {
       .sort((a, b) => DIST(a, p) - DIST(b, p));
   }
 
-  updateLock(): void {
+  /** 인식 대상 정하기: 기본은 늘 가장 가까운 적. Tab 으로 고른 적은 사라질 때까지 유지. 공격 중인 적은 바꾸지 않는다. */
+  updateLock(dt = 0): void {
     const p = this.p;
-    if (p.lock && (p.lock.dead || DIST(p.lock, p) > 200)) p.lock = null;
-    if (p.target instanceof Enemy && !p.target.dead) p.lock = p.target;
-    if (!p.lock && keySettings.autoTarget) p.lock = this.lockCandidates(140)[0] ?? null;
+    if (p.lock && (p.lock.dead || DIST(p.lock, p) > 200)) { p.lock = null; p.lockManual = false; }
+    if (p.target instanceof Enemy && !p.target.dead) { p.lock = p.target; return; }
+    if (p.lockManual) return;
+    p.lockScanT -= dt;
+    if (p.lockScanT > 0 && p.lock) return;
+    p.lockScanT = 0.2;
+    p.lock = keySettings.autoTarget ? this.lockCandidates(140)[0] ?? null : null;
   }
 
   /** 공격 키: 인식한 적(없으면 가장 가까운 적)을 쫓아가 공격 */
@@ -933,7 +938,8 @@ export class Game {
     const p = this.p;
     if (!p || p.dead) return;
     this.kbAim = true;
-    let t = p.lock && !p.lock.dead ? p.lock : null;
+    // Tab 으로 직접 고른 적이 있으면 그 적, 아니면 지금 가장 가까운 적
+    let t = p.lockManual && p.lock && !p.lock.dead ? p.lock : null;
     if (!t) t = this.lockCandidates()[0] ?? null;
     if (!t) { this.ui.toast('주변에 공격할 적이 없다', '#ff9'); return; }
     p.lock = t;
@@ -951,6 +957,7 @@ export class Game {
     if (!list.length) { p.lock = null; this.ui.toast('주변에 인식할 적이 없다', '#ff9'); return; }
     const i = p.lock ? list.indexOf(p.lock) : -1;
     p.lock = list[(i + 1) % list.length];
+    p.lockManual = true;
     if (p.target instanceof Enemy) p.target = p.lock;
     sfx('ui');
   }

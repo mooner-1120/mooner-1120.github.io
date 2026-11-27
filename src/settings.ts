@@ -89,8 +89,8 @@ export function helpHtml(): string {
     <tr><td>좌클릭 (적 근처)</td><td>추적 + 기본 공격 자동 반복</td></tr>
     <tr><td>좌클릭 (NPC/상자/출구)</td><td>대화 / 열기 / 이동</td></tr>
     <tr><td>${k('up')} ${k('down')} ${k('left')} ${k('right')}</td><td>키보드 이동</td></tr>
-    <tr><td>${k('attack')}</td><td>인식한 적 공격 (청록 표시)</td></tr>
-    <tr><td>${k('nextTarget')}</td><td>다른 적 인식</td></tr>
+    <tr><td>${k('attack')}</td><td>가장 가까운 적 공격 (청록 표시)</td></tr>
+    <tr><td>${k('nextTarget')}</td><td>다른 적 고르기 (고른 적은 쓰러뜨릴 때까지 유지)</td></tr>
     <tr><td>${k('roll')}</td><td>회피 구르기 (무적 0.2초)</td></tr>
     <tr><td>${k('skill1')} ${k('skill2')} ${k('skill3')} ${k('skill4')}</td><td>클래스 스킬 (마우스면 커서, 키보드면 인식한 적)</td></tr>
     <tr><td>${k('race')}</td><td>종족 스킬</td></tr>

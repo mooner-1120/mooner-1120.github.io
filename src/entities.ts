@@ -70,6 +70,9 @@ export class Player extends Actor {
   moveGoal: [number, number] | null = null;
   /** 키보드 전투에서 '인식'한 적 (공격 키를 누르면 이 적을 친다) */
   lock: Enemy | null = null;
+  /** Tab 으로 직접 고른 인식이면 true — 그 적이 사라질 때까지 유지한다 */
+  lockManual = false;
+  lockScanT = 0;
   holdDir: [number, number] | null = null;
   atkT = 0; // 다음 공격까지
   swingT = 0; // 휘두르는 그림 진행
