@@ -6,7 +6,7 @@ import {
 import {
   Actor, Buff, Drop, Enemy, FloatText, Hazard, NpcEnt, Particle, Player, Projectile, Shape, StatusId, Zone,
 } from './entities';
-import { addToInv, countOf, derive, Derived, Hero, ItemInst, makeItem, randomDrop, removeCount, itemName } from './items';
+import { addToInv, countOf, derive, Derived, Hero, ItemInst, makeItem, randomDrop, removeCount, itemName, STASH_SIZE } from './items';
 import { MAP_BUILDERS } from './maps';
 import { MEMORIES, MURALS, QUESTS, QuestDef, SELF_TALK, AMBIENT, BANTER } from './quests';
 import { GameMap, TS, Exit, MapObj } from './tilemap';
@@ -34,6 +34,7 @@ export interface UIHooks {
   showTalk(npc: NpcEnt, lines: string[], after: () => void): void;
   closeModal(force?: boolean): void;
   questUpdate(): void;
+  openStash(): void;
 }
 
 const ANG = (ax: number, ay: number, bx: number, by: number) => Math.atan2(by - ay, bx - ax);
@@ -257,6 +258,13 @@ export class Game {
     }
     p.target = null;
     (p as any).chestGoal = null;
+    (p as any).stashGoal = null;
+    const st = this.map.objects.find((o) => o.tag === 'stash' && Math.hypot(wx - o.x, wy - (o.y - 8)) < 12);
+    if (st) {
+      this.pathTo(st.x, st.y + 6);
+      (p as any).stashGoal = st;
+      return;
+    }
     for (const ex of this.map.exits) {
       if (this.nearExit(ex, wx, wy, 1.5)) {
         const ex2 = Math.min(Math.max(wx / TS, ex.x + 0.5), ex.x + ex.w - 0.5) * TS;
@@ -296,6 +304,7 @@ export class Game {
     this.p.mp = Math.min(hero.mp, this.der.maxMp);
     this.p.maxHp = this.der.maxHp;
     this.migrate();
+    if (!hero.stash) hero.stash = new Array(STASH_SIZE).fill(null);
     if (!this.hero.quests.length) { this.hero.flags.pro_beasts = true; this.startQuest('pro', true); }
     this.loadMap(hero.map, hero.x >= 0 ? [hero.x, hero.y] : 'start');
     this.running = true;
@@ -444,6 +453,18 @@ export class Game {
 
   loadMap(id: string, spawn: string | [number, number]): void {
     const m = MAP_BUILDERS[id]();
+    // 마을: 여신상 옆에 보관함을 둔다
+    const statue = m.objects.find((o) => o.tag === 'save');
+    if (statue && m.safe) {
+      const sx = Math.floor(statue.x / TS), sy = Math.floor((statue.y - 1) / TS);
+      for (const [dx, dy] of [[2, 0], [-2, 0], [2, 1], [-2, 1], [0, 2], [3, 0], [-3, 0]]) {
+        const tx = sx + dx, ty = sy + dy;
+        if (!m.inb(tx, ty) || m.solid[m.idx(tx, ty)]) continue;
+        if (m.exits.some((e) => tx >= e.x - 1 && tx <= e.x + e.w && ty >= e.y - 1 && ty <= e.y + e.h)) continue;
+        m.addObj({ sprite: 'chest_empty_open_anim_f0', x: tx * TS + 8, y: (ty + 1) * TS, solid: { w: 1, h: 1 }, tag: 'stash' });
+        break;
+      }
+    }
     m.prerender();
     this.map = m;
     this.hero.map = id;
@@ -764,6 +785,12 @@ export class Game {
       (p as any).chestGoal = null;
       p.path = [];
       this.openChest(cg);
+    }
+    const sg = (p as any).stashGoal as { x: number; y: number } | null;
+    if (sg && Math.hypot(sg.x - p.x, sg.y - 8 - p.y) < 24) {
+      (p as any).stashGoal = null;
+      p.path = [];
+      this.ui.openStash();
     }
 
     const kd = this.keyDir();
@@ -2022,6 +2049,7 @@ export class Game {
       if (Math.hypot(c.x * TS + 8 - p.x, c.y * TS + 8 - p.y) < 26) { this.openChest(c); return; }
     }
     for (const o of this.map.objects) {
+      if (o.tag === 'stash' && Math.hypot(o.x - p.x, o.y - 8 - p.y) < 28) { this.ui.openStash(); return; }
       if (o.tag === 'save' && Math.hypot(o.x - p.x, o.y - p.y) < 30) {
         this.saveHero();
         this.ui.save();

@@ -172,6 +172,11 @@ export function renderGame(g: Game): void {
   const toS = (x: number, y: number): [number, number] => [Math.round((x - cx) * S), Math.round((y - cy) * S)];
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
+  for (const o of g.map.objects) {
+    if (o.tag !== 'stash' || !inView(o.x, o.y)) continue;
+    const [x, y] = toS(o.x, o.y - 16);
+    outlineText(ctx, '보관함', x, y, `${11 * fsU}px Galmuri11`, '#facb3e', fsU);
+  }
   // NPC 이름·퀘스트 표시
   for (const n of g.npcs) {
     if (!inView(n.x, n.y)) continue;

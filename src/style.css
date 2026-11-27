@@ -309,3 +309,10 @@ table.keys td:first-child { color: var(--gold); white-space: nowrap; }
 
 /* 대화·메뉴 창이 열려 있으면 튜토리얼 안내는 잠시 숨긴다 */
 #ui.modal-open #tutorial { display: none; }
+
+.invtools { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.panel.stash { width: min(980px, 96vw); }
+.stashwrap { display: flex; gap: 16px; flex-wrap: wrap; }
+.stashwrap .scol { flex: 1 1 300px; min-width: 0; }
+.stashwrap .shead { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.stashwrap .stashgrid { max-height: 340px; overflow-y: auto; }

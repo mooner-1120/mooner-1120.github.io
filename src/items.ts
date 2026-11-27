@@ -136,6 +136,8 @@ export interface Hero {
   skillLv: Record<string, number>;
   equip: Partial<Record<EquipSlot, ItemInst>>;
   inv: (InvEntry | null)[];
+  /** 마을 보관함 */
+  stash?: (InvEntry | null)[];
   quick: (string | null)[]; // 소모품 id 3칸
   gold: number;
   soul: number;
@@ -151,6 +153,51 @@ export interface Hero {
 }
 
 export const INV_SIZE = 30;
+export const STASH_SIZE = 60;
+
+/** 칸 배열에 넣는다 (같은 소모품·재료는 합친다). 실패하면 false */
+export function putInto(arr: (InvEntry | null)[], e: InvEntry): boolean {
+  if (e.t !== 'eq') {
+    const same = arr.find((s) => s && s.t === e.t && s.id === e.id) as { n: number } | undefined;
+    if (same) { same.n += e.n; return true; }
+  }
+  const i = arr.indexOf(null);
+  if (i < 0) return false;
+  arr[i] = e;
+  return true;
+}
+
+/** 한 칸을 다른 배열로 옮긴다 */
+export function moveEntry(from: (InvEntry | null)[], i: number, to: (InvEntry | null)[]): boolean {
+  const e = from[i];
+  if (!e || !putInto(to, e)) return false;
+  from[i] = null;
+  return true;
+}
+
+/** 정리: 같은 것끼리 합치고 장비 → 소모품 → 재료 순, 장비는 부위·등급 순으로 앞에서부터 채운다 */
+export function sortEntries(arr: (InvEntry | null)[]): void {
+  const items = arr.filter((e): e is InvEntry => !!e);
+  const merged: InvEntry[] = [];
+  for (const e of items) {
+    if (e.t !== 'eq') {
+      const same = merged.find((s) => s.t === e.t && s.id === e.id) as { n: number } | undefined;
+      if (same) { same.n += e.n; continue; }
+    }
+    merged.push(e);
+  }
+  const ord = { eq: 0, use: 1, mat: 2 } as const;
+  const SL = ['weapon', 'offhand', 'head', 'body', 'hands', 'feet', 'ring', 'amulet'];
+  merged.sort((a, b) => {
+    if (a.t !== b.t) return ord[a.t] - ord[b.t];
+    if (a.t === 'eq' && b.t === 'eq') {
+      return SL.indexOf(slotFor(a.item)) - SL.indexOf(slotFor(b.item)) || b.item.rarity - a.item.rarity || b.item.ilvl - a.item.ilvl;
+    }
+    return (a as { id: string }).id.localeCompare((b as { id: string }).id);
+  });
+  arr.fill(null);
+  merged.forEach((e, i) => (arr[i] = e));
+}
 
 export function newHero(name: string, race: Hero['race'], cls: ClassId, gender: 'm' | 'f'): Hero {
   const c = CLASSES[cls];

@@ -8,6 +8,7 @@ import { Enemy, NpcEnt, STATUS_COLORS, STATUS_NAMES, StatusId } from './entities
 import type { Game, UIHooks } from './game';
 import {
   addToInv, baseOf, canEquip, countOf, Hero, InvEntry, itemName, itemPrice, itemTooltip, makeItem, rollRarity, slotFor, entryIcon,
+  moveEntry, sortEntries, STASH_SIZE,
 } from './items';
 import { ENDINGS, EPILOGUE, greeting, priceMul, QUESTS } from './quests';
 import { HEALERS, MAP_NAME, SHOP_KIND, SHOP_TITLE, SMITHS } from './homes';
@@ -428,9 +429,74 @@ export class UI implements UIHooks {
     const m = $('#modal');
     m.querySelectorAll<HTMLButtonElement>('.tab').forEach((b) => (b.onclick = () => { sfx('ui'); this.openMenu(b.dataset.t!); }));
     $('.x', m).onclick = () => this.closeModal();
-    if (this.menuTab === 'inv') this.bindInv(m);
+    if (this.menuTab === 'inv') {
+      this.bindInv(m);
+      $('#invSort', m).onclick = () => { sortEntries(this.hero.inv); this.selInv = null; sfx('ui'); this.dirty = true; this.renderMenu(); };
+    }
     if (this.menuTab === 'stat') this.bindStat(m);
     if (this.menuTab === 'skill') this.bindSkill(m);
+  }
+
+  // ── 보관함 ───────────────────────────────────────────────────
+  openStash(): void {
+    const h = this.hero;
+    if (!h.stash) h.stash = new Array(STASH_SIZE).fill(null);
+    sfx('chest');
+    this.renderStash();
+  }
+  renderStash(): void {
+    const h = this.hero, stash = h.stash!;
+    const cell = (e: InvEntry | null, w: string, i: number) => {
+      if (!e) return `<div class="slot" data-w="${w}" data-i="${i}"></div>`;
+      const border = e.t === 'eq' ? `border-color:${RARITY[e.item.rarity].color}` : '';
+      const n = e.t !== 'eq' && e.n > 1 ? `<b class="cnt">${e.n}</b>` : '';
+      return `<div class="slot" data-w="${w}" data-i="${i}" style="${border}">${img(entryIcon(e), 2)}${n}</div>`;
+    };
+    const used = (a: (InvEntry | null)[]) => a.filter(Boolean).length;
+    this.openModal('stash', `
+      <div class="panel menu stash">
+        <div class="tabs"><span class="ttl">보관함</span><span class="dim small"> 아이템을 클릭하면 반대쪽으로 옮겨집니다</span><button class="x">✕</button></div>
+        <div class="mbody"><div class="stashwrap">
+          <div class="scol"><div class="shead"><b>내 가방</b> <span class="dim">${used(h.inv)}/${h.inv.length}</span>
+            <button class="btn" data-a="sortInv">정리</button><button class="btn" data-a="matsIn">재료 모두 넣기</button><button class="btn" data-a="eqIn">장비 모두 넣기</button></div>
+            <div class="invgrid">${h.inv.map((e, i) => cell(e, 'inv', i)).join('')}</div></div>
+          <div class="scol"><div class="shead"><b>보관함</b> <span class="dim">${used(stash)}/${stash.length}</span>
+            <button class="btn" data-a="sortStash">정리</button></div>
+            <div class="invgrid stashgrid">${stash.map((e, i) => cell(e, 'stash', i)).join('')}</div></div>
+        </div></div>
+      </div>`);
+    const m = $('#modal');
+    $('.x', m).onclick = () => this.closeModal();
+    m.querySelectorAll<HTMLElement>('[data-w]').forEach((el) => {
+      const w = el.dataset.w!, i = +el.dataset.i!;
+      const arr = w === 'inv' ? h.inv : stash;
+      el.onclick = () => {
+        if (!arr[i]) return;
+        this.hideTip();
+        if (moveEntry(arr, i, w === 'inv' ? stash : h.inv)) sfx('pickup');
+        else { this.toast(w === 'inv' ? '보관함이 가득 찼다' : '가방이 가득 찼다', '#f66'); sfx('deny'); }
+        this.dirty = true;
+        this.buildSkillbar();
+        this.renderStash();
+      };
+      el.onmouseenter = (ev) => { const e = arr[i]; if (!e) return; this.tip(e.t === 'eq' ? itemTooltip(e.item, h.cls) : e.t === 'use' ? `<b>${CONSUMABLES[e.id].name}</b> ×${e.n}<br>${CONSUMABLES[e.id].desc}` : `<b>${MATERIALS[e.id].name}</b> ×${e.n}`, ev); };
+      el.onmouseleave = () => this.hideTip();
+    });
+    m.querySelectorAll<HTMLButtonElement>('.shead button').forEach((b) => (b.onclick = () => {
+      const a = b.dataset.a!;
+      if (a === 'sortInv') sortEntries(h.inv);
+      else if (a === 'sortStash') sortEntries(stash);
+      else {
+        const t = a === 'matsIn' ? 'mat' : 'eq';
+        let full = false;
+        h.inv.forEach((e, i) => { if (e?.t === t && !moveEntry(h.inv, i, stash)) full = true; });
+        if (full) this.toast('보관함이 가득 찼다', '#f66');
+      }
+      sfx('ui');
+      this.dirty = true;
+      this.buildSkillbar();
+      this.renderStash();
+    }));
   }
 
   invHtml(): string {
@@ -457,7 +523,7 @@ export class UI implements UIHooks {
           <div class="money2">${img('i_gold', 1)} ${h.gold}G &nbsp; ${img('i_soul', 1)} 영혼석 ${h.soul}</div>
           <div class="quick">퀵슬롯: ${h.quick.map((q, i) => `<span class="qs">${i + 1}: ${q ? img(CONSUMABLES[q].icon, 1) + ' ' + CONSUMABLES[q].name + ` (${countOf(h, 'use', q)})` : '-'}</span>`).join('')}</div>
         </div>
-        <div class="invcol"><div class="invgrid">${inv}</div><div id="detail" class="detail">${this.detailHtml()}</div></div>
+        <div class="invcol"><div class="invtools"><button class="btn" id="invSort">가방 정리</button><span class="dim small">마을 여신상 옆 보관함에 맡길 수 있습니다</span></div><div class="invgrid">${inv}</div><div id="detail" class="detail">${this.detailHtml()}</div></div>
       </div>`;
   }
 
