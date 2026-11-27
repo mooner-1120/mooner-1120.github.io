@@ -15,7 +15,7 @@ export const NPC_MAP: Record<string, string> = {
   dwarf_leader: 'dwarfhome', dwarf_smith: 'dwarfhome', dwarf_miner: 'dwarfhome',
   orc_leader: 'orchome', orc_shaman: 'orchome', orc_arena: 'orchome', vesper_visit: 'orchome', royal_captain: 'orchome',
   demon_leader: 'demonhome', imp_merchant: 'demonhome', demon_exile: 'demonhome',
-  vargon: 'riftland', eira: 'obsidian', sera: 'throne',
+  vargon: 'riftland', eira: 'obsidian', sera: 'throne', ashar_soul: 'cradle',
 };
 /** 이야기 진행에 따라 사는 곳이 바뀌는 NPC */
 export function npcMapFor(id: string, flags: Record<string, unknown>): string {
@@ -32,7 +32,7 @@ export const NPC_NAME: Record<string, string> = {
   dwarf_leader: '길드장 브론 딥해머', dwarf_smith: '대장장이 헬가', dwarf_miner: '광부 토르비',
   orc_leader: '족장 그롬마', orc_shaman: '주술사 모그', orc_arena: '투기장지기 크락', vesper_visit: '베스페라', royal_captain: '왕국군 대장',
   demon_leader: '잿불 결사의 베스페라', imp_merchant: '임프 상인 키키', demon_exile: '망명자 리스', sera: '세라',
-  vargon: '선봉대장 바르곤', eira: '에이라',
+  vargon: '선봉대장 바르곤', eira: '에이라', ashar_soul: '요람의 불꽃',
 };
 
 export const MAP_NAME: Record<string, string> = {
@@ -40,17 +40,17 @@ export const MAP_NAME: Record<string, string> = {
   elfhome: '실바넬 숲 마을', dwarfhome: '아이언후드 광산 마을', orchome: '붉은 평원 야영지', demonhome: '그림자 은신처',
   tutorial: '잿불의 꿈', forest: '실바넬의 썩은 숲', grove: '타락한 고목의 심장',
   forge: '태초의 용광로', redplains: '붉은 평원 전장', warcamp: '카르쿠쉬의 전쟁 진영',
-  riftland: '균열의 땅', obsidian: '흑요 요새', throne: '왕좌의 방',
+  riftland: '균열의 땅', obsidian: '흑요 요새', throne: '왕좌의 방', chapel: '잿빛 예배당', cradle: '불의 요람',
 };
 
 /** 지역 연결 (길안내가 거쳐 갈 지역을 고를 때 쓴다) */
 export const MAP_LINKS: Record<string, string[]> = {
   field: ['village', 'crypt', 'fort', 'rift', 'elfhome', 'dwarfhome', 'orchome', 'demonhome'],
-  village: ['field'], crypt: ['field'], fort: ['field'], rift: ['field', 'riftland'],
+  village: ['field'], crypt: ['field', 'chapel'], chapel: ['crypt'], cradle: ['throne'], fort: ['field'], rift: ['field', 'riftland'],
   elfhome: ['field', 'forest'], dwarfhome: ['field', 'forge'], orchome: ['field', 'redplains'], demonhome: ['field'],
   forest: ['elfhome', 'grove'], grove: ['forest'], forge: ['dwarfhome'],
   redplains: ['orchome', 'warcamp'], warcamp: ['redplains'],
-  riftland: ['rift', 'obsidian'], obsidian: ['riftland', 'throne'], throne: ['obsidian'],
+  riftland: ['rift', 'obsidian'], obsidian: ['riftland', 'throne'], throne: ['obsidian', 'cradle'],
 };
 
 /** from 에서 to 로 가려면 다음에 갈 지역 */

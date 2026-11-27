@@ -1120,6 +1120,14 @@ recolor_set("ogre", "forge_golem", {"3d734f": "7b8994", "8f4029": "da4e38", "622
 recolor_set("ogre", "karkush", {"8f4029": "62232f", "314152": "da4e38"}, kinds=("idle", "run"))
 # 5장: 마왕 벨카르 — 재가 된 몸 반쪽, 첫 불꽃
 recolor_set("big_demon", "belkar", {"da4e38": "3f3f3f", "9f294e": "ee8e2e", "fdf7ed": "facb3e"}, kinds=("idle", "run"))
+# 6장: 재의 사도 — 잿빛 로브 신도 · 재의 기사 · 대사제 카시안
+recolor_set("wizzard_f", "ash_acolyte", {"5698cc": "7b8994", "5956bd": "414859", "fdf7ed": "ee8e2e", "d3bfa9": "da4e38"})
+recolor_set("knight_m", "ash_knight", {"72d6ce": "8a8a8a", "417089": "3f3f3f", "da4e38": "ee8e2e"})
+recolor_set("wizzard_m", "cassian", {"5698cc": "e8ecf4", "5956bd": "b6cbcf", "fdf7ed": "ee8e2e", "d3bfa9": "da4e38", "b58057": "545454"})
+# 7장: 불의 요람 — 잿불 골렘 · 불씨 도마뱀 · 재의 어머니 아샤르
+recolor_set("ogre", "cinder_golem", {"3d734f": "3f3f3f", "8f4029": "ee8e2e", "62232f": "facb3e", "314152": "2a2a2a"}, kinds=("idle", "run"))
+recolor_set("lizard_m", "ember_drake", {"97da3f": "ee8e2e", "4ba747": "da4e38", "3d734f": "8f4029", "49a790": "facb3e"})
+recolor_set("big_demon", "ashar", {"da4e38": "e8ecf4", "9f294e": "facb3e", "fdf7ed": "ee8e2e", "62232f": "b6cbcf"}, kinds=("idle", "run"))
 
 
 # 튜토리얼: 잿불 허수아비 (나무 기둥 + 짚 자루 + 과녁 얼굴)

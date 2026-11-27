@@ -8,7 +8,7 @@ import {
 } from './entities';
 import { addToInv, countOf, derive, Derived, Hero, ItemInst, makeItem, randomDrop, removeCount, itemName, STASH_SIZE } from './items';
 import { MAP_BUILDERS } from './maps';
-import { MEMORIES, MURALS, QUESTS, QuestDef, SELF_TALK, AMBIENT, BANTER } from './quests';
+import { MEMORIES, MURALS, ORIGINS, QUESTS, QuestDef, SELF_TALK, AMBIENT, BANTER } from './quests';
 import { GameMap, TS, Exit, MapObj } from './tilemap';
 import { updateEnemy } from './ai';
 import { renderGame } from './render';
@@ -305,6 +305,8 @@ export class Game {
     this.p.maxHp = this.der.maxHp;
     this.migrate();
     if (!hero.stash) hero.stash = new Array(STASH_SIZE).fill(null);
+    // 최종장을 이미 끝낸 저장: 6장을 열어 준다
+    if (hero.quests.find((q) => q.id === 'c5_5')?.done && !hero.quests.find((q) => q.id === 'c6_1')) this.startQuest('c6_1', true);
     if (!this.hero.quests.length) { this.hero.flags.pro_beasts = true; this.startQuest('pro', true); }
     this.loadMap(hero.map, hero.x >= 0 ? [hero.x, hero.y] : 'start');
     this.running = true;
@@ -416,11 +418,17 @@ export class Game {
     for (const o of this.map.objects) {
       if (!o.tag || (o.req && !this.hero.flags[o.req])) continue;
       const [kind, id] = o.tag.split(':');
-      if ((kind !== 'memory' && kind !== 'mural') || this.hero.flags['seen_' + id]) continue;
+      if ((kind !== 'memory' && kind !== 'mural' && kind !== 'origin') || this.hero.flags['seen_' + id]) continue;
       if (Math.hypot(o.x - this.p.x, o.y - this.p.y) > (kind === 'mural' ? 26 : 18)) continue;
       this.hero.flags['seen_' + id] = true;
       sfx('teleport');
-      if (kind === 'memory') {
+      if (kind === 'origin') {
+        const og = ORIGINS[id];
+        this.ui.showScene(og.title, og.lines);
+        const n = Object.keys(ORIGINS).filter((k) => this.hero.flags['seen_' + k]).length;
+        this.ui.toast(`요람의 비석 ${n}/${Object.keys(ORIGINS).length}`, '#facb3e');
+        if (n >= Object.keys(ORIGINS).length) this.setFlag('origin_seen');
+      } else if (kind === 'memory') {
         const mem = MEMORIES[id];
         this.ui.showScene(mem.title, mem.lines);
         if (mem.flag) this.hero.flags[mem.flag] = true;
@@ -2246,7 +2254,7 @@ export class Game {
       const st = def?.stages[q.stage];
       if (!st) continue;
       if (st.k === 'choice' && resolveNpc(st.npc, race) === npc) {
-        const intro = def.talksByRace?.[q.stage]?.[race] ?? def.talks?.[q.stage] ?? [];
+        const intro = this.byFlag(def.talksByFlag?.[q.stage]) ?? def.talksByRace?.[q.stage]?.[race] ?? def.talks?.[q.stage] ?? [];
         return {
           quest: def,
           lines: intro,
@@ -2260,13 +2268,20 @@ export class Game {
           if (countOf(this.hero, 'mat', prev.mat) < prev.n) { q.stage--; continue; }
           removeCount(this.hero, 'mat', prev.mat, prev.n);
         }
-        const said = def.talksByRace?.[q.stage]?.[race] ?? def.talks?.[q.stage];
+        const said = this.byFlag(def.talksByFlag?.[q.stage]) ?? def.talksByRace?.[q.stage]?.[race] ?? def.talks?.[q.stage];
         const finished = this.advance(q);
-        if (finished) return { quest: def, lines: def.doneByRace?.[race] ?? def.done };
+        if (finished) return { quest: def, lines: this.byFlag(def.doneByFlag) ?? def.doneByRace?.[race] ?? def.done };
         return { quest: def, lines: said ?? ['좋아, 계속 부탁하네.'] };
       }
     }
     return null;
+  }
+
+  /** 켜진 플래그에 맞는 대사 (없으면 undefined) */
+  byFlag(m?: Record<string, string[]>): string[] | undefined {
+    if (!m) return undefined;
+    const k = Object.keys(m).find((f) => this.hero.flags[f]);
+    return k ? m[k] : undefined;
   }
 
   /** 선택지 고르기 */
@@ -2282,7 +2297,7 @@ export class Game {
     const finished = this.advance(q);
     this.syncWorld();
     const lines = [...o.lines];
-    if (finished && def.done.length) lines.push(...(def.doneByRace?.[this.hero.race] ?? def.done));
+    if (finished && def.done.length) lines.push(...(this.byFlag(def.doneByFlag) ?? def.doneByRace?.[this.hero.race] ?? def.done));
     return lines;
   }
 
@@ -2364,6 +2379,8 @@ export class Game {
     if (def.chapterClear) setTimeout(() => this.ui.showChapterClear(def.chapterClear!), 1800);
     const ending = ['ending_1', 'ending_2', 'ending_3'].find((k) => this.hero.flags[k]);
     if (id === 'c5_5' && ending) setTimeout(() => this.ui.showEnding(ending), 1200);
+    const finale = ['finale_sleep', 'finale_share', 'finale_take'].find((k) => this.hero.flags[k]);
+    if (id === 'c7_3' && finale) setTimeout(() => this.ui.showEnding(finale), 1200);
     this.ui.hudDirty();
     this.ui.questUpdate();
   }
@@ -2374,6 +2391,7 @@ export class Game {
       if (resolveNpc(def.giver, this.hero.race) !== npc || def.autoAccept || this.qs(def.id)) continue;
       if (def.race && def.race !== this.hero.race) continue;
       if (def.requires && !this.qs(def.requires)?.done) continue;
+      if (def.reqFlag && !this.hero.flags[def.reqFlag]) continue;
       if (this.hero.level < 2 && def.id !== 'smith_hides') continue;
       return def;
     }
@@ -2405,6 +2423,7 @@ export class Game {
       blight_wolf: 'forest', swampy: 'forest', muddy: 'forest', slug: 'forest', pumpkin_dude: 'forest', forest_spirit: 'forest', dryad: 'forest',
       ash_beast: HOME[this.hero.race].map, magma_slime: 'forge', stone_golem: 'forge', forge_spirit: 'forge',
       warband: 'redplains', war_shaman: 'redplains', war_boar: 'redplains', arena_champion: 'redplains',
+      ash_acolyte: 'field', ash_knight: 'chapel', cinder_golem: 'cradle', ember_drake: 'cradle', royal_guard: 'obsidian', legion_blade: 'riftland',
     };
     const MAT_ENEMY: Record<string, string> = { hide: 'boar', silk: 'spider', bone: 'skelet', spirit_stone: 'forest_spirit' };
     let map = '';
@@ -2435,6 +2454,7 @@ export class Game {
         crypt_cleared: ['crypt', 'big_zombie', '묘지기 모스'], king_dead: ['fort', 'bandit_king', '도적왕 가르토'], vargon_dead: ['rift', 'big_demon', '바르곤'], spirit_dead: ['grove', 'forest_lord', '실바레스'],
         golem_dead: ['forge', 'forge_golem', '용광로 골렘'], karkush_dead: ['warcamp', 'karkush', '카르쿠쉬'], vargon_resolved: ['riftland', 'vargon2', '바르곤'],
         mordain_dead: ['throne', 'ash_king', '잿빛 왕'], belkar_dead: ['throne', 'belkar', '마왕 벨카르'],
+        cassian_dead: ['chapel', 'cassian', '재의 대사제 카시안'], ashar_dead: ['cradle', 'ashar', '재의 어머니 아샤르'],
       };
       // 벽화 · 기억은 아직 안 본 것 중 가장 가까운 곳
       const seek = (prefix: string, ids: string[], mapOf: (id: string) => string, name: string) => {
@@ -2448,9 +2468,11 @@ export class Game {
         }
         return { map: mapOf(left[0]), x: 0, y: 0, label: name };
       };
-      if (st.flag === 'murals_seen' || st.flag === 'memories_all') {
+      if (st.flag === 'murals_seen' || st.flag === 'memories_all' || st.flag === 'origin_seen') {
         const t = st.flag === 'murals_seen'
           ? seek('mural:', Object.keys(MURALS), () => 'obsidian', '노르하임의 벽화')
+          : st.flag === 'origin_seen'
+          ? seek('origin:', Object.keys(ORIGINS), () => 'cradle', '요람의 비석')
           : seek('memory:', Object.keys(MEMORIES), (id) => MEMORIES[id].map, '기억의 틈');
         if (!t) return null;
         map = t.map;

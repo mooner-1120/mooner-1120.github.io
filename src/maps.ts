@@ -276,6 +276,10 @@ export function buildField(): GameMap {
   zone('goblin', 54, 22, 3); zone('goblin', 60, 42, 3); zone('wolf', 52, 50, 2);
   zone('bandit', 70, 28, 2); zone('bandit_archer', 72, 38, 2); zone('bandit', 76, 33, 2, 3); zone('bandit_archer', 66, 20, 2);
   m.spawns.push({ id: 'masked_orc', x: px(78), y: px(36), respawn: 90 });
+  // 6장: 재의 사도 신도들이 평원을 떠돈다
+  const before = m.spawns.length;
+  zone('ash_acolyte', 40, 30, 3); zone('ash_acolyte', 56, 34, 2); zone('ash_acolyte', 24, 30, 2);
+  for (const s of m.spawns.slice(before)) s.req = 'ch6_open';
   m.chests.push({ x: 35, y: 8, id: 'field1', tier: 3 }, { x: 70, y: 58, id: 'field2', tier: 5 }, { x: 8, y: 46, id: 'field3', tier: 2 });
   for (const c of m.chests) { m.solid[m.idx(c.x, c.y)] = 0; }
   return m;
@@ -353,6 +357,11 @@ export function buildCrypt(): GameMap {
   for (let k = 0; k < 4; k++) m.addObj({ sprite: k % 2 ? 'o_grave_1' : 'o_grave_0', x: px(b.x + 2 + k * 4), y: foot(b.y + b.h - 2), solid: { w: 1, h: 1 } });
   m.chests.push({ x: b.x + b.w - 3, y: b.y + 1, id: 'crypt_boss', tier: 7 });
   { const rm = mid[Math.min(1, mid.length - 1)]; memory(m, 'mem_night', rm.x + (rm.w >> 1), rm.y + (rm.h >> 1)); }
+  // 6장: 보스 방 아래로 내려가는 예배당 계단
+  m.fillRect(51, 47, 3, 4, T.Floor);
+  m.addObj({ sprite: 'portal', x: px(52), y: foot(50), tag: 'portal', req: 'chapel_open', light: 60 });
+  m.points.chapel = [px(52), px(45)];
+  m.exits.push({ x: 51, y: 50, w: 3, h: 1, to: 'chapel', spawn: 'south', label: '잿빛 예배당', locked: 'chapel_open', lockMsg: '무덤 아래에서 재 냄새가 올라온다. 아직은 내려갈 이유가 없다.' });
   return m;
 }
 
@@ -888,6 +897,84 @@ export function buildThrone(): GameMap {
   m.spawns.push({ id: 'ash_king', x: px(16), y: px(11), tag: 'boss' });
   m.spawns.push({ id: 'belkar', x: px(16), y: px(10), tag: 'boss', req: 'mordain_dead' });
   m.npcs.push({ id: 'sera', name: '세라', sprite: 'sera', x: px(18), y: px(9), req: 'belkar_dead' });
+  // 7장: 왕좌 뒤 숨겨진 계단 → 불의 요람
+  m.fillRect(25, 0, 3, 4, T.Cobble);
+  m.addObj({ sprite: 'portal', x: px(26), y: foot(1), tag: 'portal', req: 'cradle_open', light: 60 });
+  m.points.north = [px(26), px(5)];
+  m.exits.push({ x: 25, y: 0, w: 3, h: 1, to: 'cradle', spawn: 'south', label: '불의 요람', locked: 'cradle_open', lockMsg: '왕좌 뒤 벽에 희미한 불꽃 문양이 있다. 아직 열리지 않는다.' });
+  return m;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 6장: 잿빛 예배당 (지하 묘지 아래, 재의 사도 본거지)
+export function buildChapel(): GameMap {
+  const W = 40, H = 44;
+  const m = new GameMap('chapel', '잿빛 예배당', W, H, T.Wall);
+  m.dark = true;
+  m.ambient = 'rgba(20,18,22,0.78)';
+  m.bgm = 'dungeon';
+  m.wallStyle = 'dungeon';
+  const r = rng(6060);
+  m.fillRect(16, 35, 8, 7, T.Floor); // 입구
+  m.fillRect(18, 42, 4, 2, T.Floor);
+  m.fillRect(19, 28, 2, 8, T.Floor); // 복도
+  m.fillRect(8, 12, 24, 16, T.Cobble); // 본당
+  m.fillRect(2, 16, 6, 7, T.Floor); // 서쪽 납골실
+  m.fillRect(32, 16, 6, 7, T.Floor); // 동쪽 납골실
+  m.fillRect(13, 3, 14, 9, T.Cobble); // 제단
+  for (const x of [11, 16, 24, 29]) for (const y of [15, 20, 25]) m.addObj({ sprite: 'column', x: px(x), y: foot(y), solid: { w: 1, h: 1 } });
+  for (const x of [15, 20, 25]) m.addObj({ sprite: 'wall_banner_red', x: px(x), y: foot(2), layer: 'ground' });
+  for (const x of [14, 26]) torch(m, x, 2, true);
+  for (const x of [9, 30]) torch(m, x, 11, false);
+  m.addObj({ sprite: 'o_statue', x: px(20), y: foot(4), solid: { w: 1, h: 1 } });
+  for (const [x, y] of [[3, 17], [6, 22], [33, 17], [36, 22]] as const) m.addObj({ sprite: r() < 0.5 ? 'o_grave_0' : 'o_grave_1', x: px(x), y: foot(y), solid: { w: 1, h: 1 } });
+  m.points.south = [px(20), px(39)];
+  m.points.start = m.points.south;
+  m.points.boss = [px(20), px(8)];
+  m.exits.push({ x: 18, y: 43, w: 4, h: 1, to: 'crypt', spawn: 'chapel', label: '잊혀진 지하 묘지' });
+  const zone = reachableZone(m, r, [20, 39], 70);
+  zone('ash_acolyte', 20, 37, 2, 2); zone('ash_knight', 14, 18, 2); zone('ash_knight', 26, 18, 2);
+  zone('ash_acolyte', 20, 24, 2); zone('ash_acolyte', 4, 19, 1, 2); zone('ash_knight', 35, 19, 1, 2);
+  m.spawns.push({ id: 'cassian', x: px(20), y: px(7), tag: 'boss' });
+  m.chests.push({ x: 3, y: 21, id: 'chapel1', tier: 26 }, { x: 36, y: 21, id: 'chapel2', tier: 26 });
+  return m;
+}
+
+// 7장: 불의 요람 (왕좌의 방 뒤, 첫 불꽃이 태어난 곳)
+export function buildCradle(): GameMap {
+  const W = 60, H = 56;
+  const m = new GameMap('cradle', '불의 요람', W, H, T.Lava);
+  m.bgm = 'boss';
+  m.dark = true;
+  m.ambient = 'rgba(60,20,6,0.4)';
+  const r = rng(7070);
+  carvePath(m, [[30, 55], [30, 46], [16, 38], [22, 28], [40, 24], [44, 16], [30, 12]], 4, T.Ash);
+  carvePath(m, [[16, 38], [8, 44]], 3, T.Ash);
+  carvePath(m, [[40, 24], [52, 30]], 3, T.Ash);
+  carveRoom(m, 30, 9, 11, 7, T.Ash);
+  carveRoom(m, 8, 45, 4, 3, T.Ash);
+  carveRoom(m, 52, 31, 4, 3, T.Ash);
+  for (let i = 0; i < 40; i++) {
+    const x = 3 + ((r() * (W - 6)) | 0), y = 3 + ((r() * (H - 6)) | 0);
+    if (m.get(x, y) === T.Ash && Math.hypot(x - 30, y - 9) > 9 && Math.abs(x - 30) + Math.abs(y - 50) > 5) obj(m, r() < 0.6 ? 'o_crystal' : 'o_rock_1', x, y, 1, 1);
+  }
+  // 요람의 비석 세 개
+  const stones: [string, number, number][] = [['origin1', 8, 44], ['origin2', 52, 30], ['origin3', 22, 28]];
+  for (const [id, x, y] of stones) {
+    for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) m.solid[m.idx(xx, yy)] = 0;
+    m.objects = m.objects.filter((o) => !(Math.abs(o.x / TS - x - 0.5) < 1.6 && Math.abs(o.y / TS - y - 1) < 1.6));
+    m.addObj({ sprite: 'o_grave_1', x: px(x), y: foot(y - 1), tag: 'origin:' + id, light: 50 });
+  }
+  m.points.south = [px(30), px(52)];
+  m.points.start = m.points.south;
+  m.points.boss = [px(30), px(9)];
+  m.exits.push({ x: 28, y: 55, w: 5, h: 1, to: 'throne', spawn: 'north', label: '왕좌의 방' });
+  const zone = reachableZone(m, r, [30, 52], 70);
+  zone('ember_drake', 30, 46, 2); zone('ember_drake', 18, 36, 2); zone('cinder_golem', 22, 26, 1);
+  zone('rift_spirit', 38, 24, 2); zone('ember_drake', 48, 28, 2); zone('cinder_golem', 44, 17, 1); zone('ember_drake', 10, 44, 1);
+  m.spawns.push({ id: 'ashar', x: px(30), y: px(8), tag: 'boss', req: 'origin_seen' });
+  m.npcs.push({ id: 'ashar_soul', name: '요람의 불꽃', sprite: 'fire_spirit', x: px(30), y: px(9), req: 'ashar_dead' });
+  m.chests.push({ x: 53, y: 32, id: 'cradle1', tier: 30 });
   return m;
 }
 
@@ -929,4 +1016,5 @@ export const MAP_BUILDERS: Record<string, () => GameMap> = {
   forest: buildForest, grove: buildGrove,
   tutorial: buildTutorial,
   forge: buildForge, redplains: buildRedPlains, warcamp: buildWarCamp, riftland: buildRiftLand, obsidian: buildObsidian, throne: buildThrone,
+  chapel: buildChapel, cradle: buildCradle,
 };

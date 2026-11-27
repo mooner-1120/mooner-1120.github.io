@@ -209,6 +209,7 @@ export class UI implements UIHooks {
       2: { title: '엘프와의 맹약', body: '타락한 정령 실바레스를 정화하고 생명석을 맡았다.<br>잠에서 깬 현자 오르웬: "왕관이 무엇을 먹고 빛났는지부터 알아라."', next: '3장이 시작된다: 아이언후드 광산 마을의 길드장 브론 딥해머를 찾아가라.' },
       3: { title: '드워프의 협력', body: '단조 연대기가 진실을 말했다. 왕관의 불은 노르하임에서 빼앗은 첫 불꽃이었다.<br>그 불에는 한 민족의 영혼이 묶여 있다.', next: '4장이 시작된다: 붉은 평원 야영지의 족장 그롬마를 찾아가라.' },
       4: { title: '오크 부족 통일', body: '부족들은 다시 하나가 되었다. 그리고 섭정 모르데인은 가면을 벗었다.<br>네 개의 보석과 세라가 북쪽으로 끌려갔다.', next: '최종장이 시작된다: 그림자 은신처의 베스페라와 함께 균열의 땅으로.' },
+      6: { title: '재의 사도', body: '재의 대사제 카시안이 쓰러지고, 재의 경전이 진실을 하나 더 꺼냈다.<br>첫 불꽃은 노르하임의 것도 아니었다. 불을 낳은 재의 어머니가 북녘 너머 요람에 잠들어 있다.', next: '7장이 시작된다: 실바넬의 현자 오르웬에게 요람이 어디 있는지 물어라.' },
     };
     const ch = CH[chapter] ?? CH[1];
     this.openModal('clear', `
@@ -365,12 +366,12 @@ export class UI implements UIHooks {
     sfx('levelup');
     this.openModal('ending', `
       <div class="panel center ending">
-        <div class="kicker">THE END</div>
+        <div class="kicker">${id.startsWith('finale') ? 'EPILOGUE · 잿빛 왕관 이후' : 'THE END'}</div>
         <h2>${esc(e.title)}</h2>
         ${e.body.map((l) => `<p>${esc(l)}</p>`).join('')}
         <p class="epi">${esc(EPILOGUE[this.hero.race])}</p>
-        <p class="dim small">플레이 시간 ${fmtTime(this.hero.playtime)} · 처치 ${this.hero.kills} · Lv.${this.hero.level}<br>${id !== 'ending_2' ? '다른 엔딩도 있습니다. 다섯 종족과의 맹약, 단조 연대기, 가르토, 노르하임의 기억, 에이라... 퀘스트 창에서 조건을 확인해 보세요.' : '진 엔딩을 보셨습니다. 함께해 주셔서 고맙습니다.'}</p>
-        <button class="btn big" id="endOk">계속 플레이하기</button>
+        <p class="dim small">플레이 시간 ${fmtTime(this.hero.playtime)} · 처치 ${this.hero.kills} · Lv.${this.hero.level}<br>${id.startsWith('finale') ? '잿빛 왕관의 이야기는 여기서 끝납니다. 끝까지 함께해 주셔서 고맙습니다.' : id !== 'ending_2' ? '다른 엔딩도 있습니다. 다섯 종족과의 맹약, 단조 연대기, 가르토, 노르하임의 기억, 에이라... 퀘스트 창에서 조건을 확인해 보세요.' : '진 엔딩을 보셨습니다. 함께해 주셔서 고맙습니다.'}</p>
+        <button class="btn big" id="endOk">${id.startsWith('ending') ? '계속 플레이하기 — 6장이 열렸습니다' : '계속 플레이하기'}</button>
       </div>`);
     $('#endOk').onclick = () => this.closeModal();
   }
