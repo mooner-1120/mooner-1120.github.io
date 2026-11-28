@@ -603,7 +603,8 @@ export class Game {
         f();
       }
     } else if (this.fade > 0) this.fade = Math.max(0, this.fade - dt * 3);
-    if (!this.ui.modalOpen()) {
+    // 함께하기 중에는 대화창·메뉴를 열어도 세상이 멈추지 않는다 (연결과 몬스터가 계속 움직인다)
+    if (!this.ui.modalOpen() || this.coop.on) {
       this.hero.playtime += dt;
       if (this.slowmo > 0) { this.slowmo -= dt; dt *= 0.35; }
       if (this.hitstop > 0) this.hitstop -= dt;

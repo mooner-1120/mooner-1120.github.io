@@ -29,14 +29,14 @@ export async function hostRoom(code: string): Promise<Transport> {
   return hybridHost(code);
 }
 
-export async function joinRoom(code: string): Promise<Transport> {
+export async function joinRoom(code: string, relayId?: string): Promise<Transport> {
   if (useLocal()) return localJoin(code);
   // 1) 직접 연결(WebRTC)을 먼저 시도하고, 2) 안 되면 공개 메시지 서버(MQTT)를 거쳐 주고받는다
   let first: Error | null = null;
   if (!forceRelay()) {
     try { return await peerJoin(code, 10000); } catch (e) { first = e as Error; }
   }
-  try { return await relayJoin(code); } catch (e) {
+  try { return await relayJoin(code, relayId); } catch (e) {
     throw new Error((e as Error).message + (first ? ` (직접 연결: ${first.message})` : ''));
   }
 }
@@ -199,7 +199,7 @@ async function connectBroker(url: string, ms = 6000): Promise<Mqtt> {
 /** 보낼 메시지를 모아 50ms 마다 한 번에 보낸다 (서버 부담 ↓) */
 function batcher(pub: (to: string, list: unknown[]) => void) {
   const q = new Map<string, unknown[]>();
-  const iv = setInterval(() => { for (const [to, list] of q) if (list.length) pub(to, list.splice(0)); }, 50);
+  const iv = setInterval(() => { for (const [to, list] of q) if (list.length) pub(to, list.splice(0)); }, 90);
   return { push(to: string, m: unknown) { (q.get(to) ?? q.set(to, []).get(to)!).push(m); }, stop() { clearInterval(iv); }, drop(to: string) { q.delete(to); } };
 }
 
@@ -223,7 +223,9 @@ async function relayHost(code: string): Promise<Transport> {
       if (!f) return;
       if (m.k === 'join') {
         c.publish(`${T}/g/${f}`, JSON.stringify({ k: 'ok' }));
-        if (!guests.has(f)) { guests.set(f, { c, seen: Date.now() }); peerCb(f, true); }
+        const known = guests.has(f);
+        guests.set(f, { c, seen: Date.now() });
+        if (!known) peerCb(f, true);
         return;
       }
       const g = guests.get(f);
@@ -233,7 +235,9 @@ async function relayHost(code: string): Promise<Transport> {
       if (m.k === 'd') for (const d of m.d ?? []) msgCb(f, d);
     });
   }
-  const watch = setInterval(() => { for (const [gid, g] of guests) if (Date.now() - g.seen > 12000) drop(gid); }, 2000);
+  // 게임이 멈춰도(대화창·백그라운드 탭) 연결이 살아 있음을 알린다
+  const hb = setInterval(() => { for (const [gid, g] of guests) g.c.publish(`${T}/g/${gid}`, JSON.stringify({ k: 'hb' })); }, 3000);
+  const watch = setInterval(() => { for (const [gid, g] of guests) if (Date.now() - g.seen > 30000) drop(gid); }, 3000);
   return {
     id, isHost: true,
     send(to, msg) {
@@ -244,15 +248,15 @@ async function relayHost(code: string): Promise<Transport> {
     onPeer(cb) { peerCb = cb; },
     close() {
       for (const [gid, g] of guests) g.c.publish(`${T}/g/${gid}`, JSON.stringify({ k: 'bye' }));
-      out.stop(); clearInterval(watch);
+      out.stop(); clearInterval(watch); clearInterval(hb);
       setTimeout(() => clients.forEach((c) => c.end(true)), 200);
     },
   };
 }
 
-async function relayJoin(code: string): Promise<Transport> {
+async function relayJoin(code: string, prevId?: string): Promise<Transport> {
   const T = topic(code);
-  const id = 'relay-' + Math.random().toString(36).slice(2, 10);
+  const id = prevId?.startsWith('relay-') ? prevId : 'relay-' + Math.random().toString(36).slice(2, 10);
   const hostId = PREFIX + code;
   let lastErr = '';
   for (const url of brokers()) {
@@ -276,13 +280,14 @@ async function relayJoin(code: string): Promise<Transport> {
       if (m.k === 'd') for (const d of m.d ?? []) msgCb(hostId, d);
     });
     const out = batcher((_to, list) => c.publish(`${T}/h`, JSON.stringify({ f: id, k: 'd', d: list })));
-    const watch = setInterval(() => { if (Date.now() - seen > 12000) { clearInterval(watch); peerCb(hostId, false); } }, 2000);
+    const hb = setInterval(() => c.publish(`${T}/h`, JSON.stringify({ f: id, k: 'hb' })), 3000);
+    const watch = setInterval(() => { if (Date.now() - seen > 30000) { clearInterval(watch); clearInterval(hb); peerCb(hostId, false); } }, 3000);
     return {
       id, isHost: false,
       send(_to, msg) { out.push(hostId, msg); },
       onMessage(cb) { msgCb = cb; },
       onPeer(cb) { peerCb = cb; },
-      close() { c.publish(`${T}/h`, JSON.stringify({ f: id, k: 'bye' })); out.stop(); clearInterval(watch); setTimeout(() => c.end(true), 200); },
+      close() { c.publish(`${T}/h`, JSON.stringify({ f: id, k: 'bye' })); out.stop(); clearInterval(watch); clearInterval(hb); setTimeout(() => c.end(true), 200); },
     };
   }
   throw new Error(lastErr === '방을 찾지 못함'

@@ -84,6 +84,35 @@ export class Coop {
     this.sys('방에 참가했습니다.');
   }
 
+  private reconnecting = false;
+  /** 참가자: 방장과 끊기면 같은 코드로 몇 번 다시 붙어 본다 */
+  async reconnect(): Promise<void> {
+    if (this.reconnecting || !this.t || this.role !== 'guest') return;
+    this.reconnecting = true;
+    const code = this.code, oldId = this.t.id;
+    try { this.t.close(); } catch { /* */ }
+    this.sys('방장과 연결이 잠깐 끊겼습니다. 다시 연결하는 중…');
+    for (let i = 0; i < 4; i++) {
+      try {
+        const t = await joinRoom(code, oldId);
+        this.attach(t, 'guest');
+        t.send('host', { t: 'hello', ...this.me() });
+        this.sys('다시 연결되었습니다.');
+        this.reconnecting = false;
+        return;
+      } catch { await new Promise((r) => setTimeout(r, 2000)); }
+    }
+    this.reconnecting = false;
+    this.t = null;
+    const wasMirrored = this.mirrored;
+    this.role = 'none';
+    this.players.clear();
+    this.hostMap = '';
+    if (wasMirrored) this.g.leaveSharedWorld();
+    this.sys('방장과 다시 연결하지 못했습니다. 혼자 하기로 돌아갑니다. (파티 창에서 다시 참가할 수 있어요)');
+    this.onChange();
+  }
+
   leave(reason = '파티를 떠났습니다.'): void {
     if (!this.t) return;
     try { this.t.send('*', { t: 'bye' }); } catch { /* */ }
@@ -104,7 +133,7 @@ export class Coop {
     t.onMessage((from, msg) => this.handle(from, msg));
     t.onPeer((id, joined) => {
       if (joined) return;
-      if (role === 'guest') { this.leave('방장과 연결이 끊어졌습니다. 혼자 하기로 돌아갑니다.'); return; }
+      if (role === 'guest') { void this.reconnect(); return; }
       const p = this.players.get(id);
       this.players.delete(id);
       if (p) { this.sys(`${p.name} 님이 떠났습니다.`); this.broadcast({ t: 'left', id }); }
