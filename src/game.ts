@@ -545,6 +545,37 @@ export class Game {
     return !!f && !!this.hero.flags[f];
   }
 
+  /** 이 지역에 지금 들어갈 수 있나: 평원·고향에서 잠기지 않은 길로 이어져 있어야 한다 */
+  canEnter(map: string): boolean {
+    if (!MAP_BUILDERS[map] || map === 'tutorial') return false;
+    const g = Game as unknown as { exitCache?: Record<string, { to: string; locked?: string }[]> };
+    if (!g.exitCache) {
+      const c: Record<string, { to: string; locked?: string }[]> = {};
+      for (const id of Object.keys(MAP_BUILDERS)) c[id] = MAP_BUILDERS[id]().exits.map((e) => ({ to: e.to, locked: e.locked }));
+      g.exitCache = c;
+    }
+    const seen = new Set(['field', 'village', 'elfhome', 'dwarfhome', 'orchome', 'demonhome']);
+    const q = [...seen];
+    while (q.length) {
+      const cur = q.shift()!;
+      for (const e of g.exitCache[cur] ?? []) {
+        if (seen.has(e.to) || (e.locked && !this.hero.flags[e.locked])) continue;
+        seen.add(e.to);
+        q.push(e.to);
+      }
+    }
+    return seen.has(map);
+  }
+
+  /** 파티원이 있는 곳으로 간다 */
+  goToPartner(map: string): string | null {
+    if (map === this.map.id) return '이미 같은 지역에 있다.';
+    if (this.boss && !this.boss.dead && this.boss.aggro) return '보스전 중에는 이동할 수 없다.';
+    if (!this.canEnter(map)) return '아직 이야기가 거기까지 진행되지 않아서 갈 수 없는 곳이다.';
+    this.travel(map, 'start');
+    return null;
+  }
+
   travel(to: string, spawn: string): void {
     if (this.fadeTo) return;
     sfx('door');

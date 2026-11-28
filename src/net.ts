@@ -35,6 +35,17 @@ export async function joinRoom(code: string): Promise<Transport> {
 // ── PeerJS ─────────────────────────────────────────────────────────
 type Conn = import('peerjs').DataConnection;
 
+/** 연결 경로 후보: STUN(주소 알아내기) + TURN(서로 직접 못 닿을 때 대신 전달해 주는 중계) */
+const ICE: RTCIceServer[] = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  {
+    urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp', 'turns:openrelay.metered.ca:443?transport=tcp'],
+    username: 'openrelayproject', credential: 'openrelayproject',
+  },
+];
+const PEER_OPTS = { debug: 0, config: { iceServers: ICE } } as const;
+
 async function loadPeer() {
   const mod = await import('peerjs');
   return mod.Peer;
@@ -42,16 +53,17 @@ async function loadPeer() {
 
 function friendly(err: any): Error {
   const t = err?.type ?? '';
-  if (t === 'peer-unavailable') return new Error('방을 찾을 수 없습니다. 코드를 다시 확인해 주세요.');
+  if (t === 'peer-unavailable') return new Error('방을 찾을 수 없습니다. 코드를 다시 확인하고, 방장 화면에 방이 아직 열려 있는지 확인해 주세요.');
   if (t === 'unavailable-id') return new Error('이미 쓰는 방 코드입니다. 다시 시도해 주세요.');
-  if (t === 'network' || t === 'server-error' || t === 'socket-error') return new Error('연결 서버에 닿지 못했습니다. 인터넷 연결을 확인해 주세요.');
+  if (t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed') return new Error('연결 서버(PeerJS)에 닿지 못했습니다. 인터넷 연결을 확인하거나, 광고 차단·보안 프로그램이 막고 있지 않은지 확인해 주세요.');
+  if (t === 'webrtc' || t === 'negotiation-failed') return new Error('방장과 직접 연결하지 못했습니다. 같은 와이파이에서 다시 시도해 주세요.');
   if (t === 'browser-incompatible') return new Error('이 브라우저(또는 이 페이지)에서는 멀티플레이 연결(WebRTC)을 쓸 수 없습니다.');
   return new Error('연결에 실패했습니다: ' + (err?.message ?? t ?? err));
 }
 
 async function peerHost(code: string): Promise<Transport> {
   const Peer = await loadPeer();
-  const peer = new Peer(PREFIX + code, { debug: 0 });
+  const peer = new Peer(PREFIX + code, PEER_OPTS);
   const conns = new Map<string, Conn>();
   let msgCb: (from: string, msg: any) => void = () => {};
   let peerCb: (id: string, joined: boolean) => void = () => {};
@@ -86,7 +98,7 @@ async function peerHost(code: string): Promise<Transport> {
 
 async function peerJoin(code: string): Promise<Transport> {
   const Peer = await loadPeer();
-  const peer = new Peer({ debug: 0 });
+  const peer = new Peer(PEER_OPTS);
   let msgCb: (from: string, msg: any) => void = () => {};
   let peerCb: (id: string, joined: boolean) => void = () => {};
   await new Promise<void>((res, rej) => {
@@ -99,7 +111,7 @@ async function peerJoin(code: string): Promise<Transport> {
   await new Promise<void>((res, rej) => {
     conn.on('open', () => res());
     peer.on('error', (e) => rej(friendly(e)));
-    setTimeout(() => rej(new Error('방장과 연결하지 못했습니다. 코드를 확인하거나 다시 시도해 주세요.')), 15000);
+    setTimeout(() => { peer.destroy(); rej(new Error('방은 찾았지만 방장 컴퓨터와 연결이 이어지지 않았습니다. 서로 다른 인터넷(집 와이파이 ↔ 모바일 데이터, 회사·학교망)이면 막힐 수 있어요. 같은 와이파이에서 다시 시도하거나, 방장이 방을 새로 만들어 보세요.')); }, 25000);
   });
   conn.on('data', (d) => msgCb(hostId, d));
   conn.on('close', () => peerCb(hostId, false));

@@ -892,11 +892,11 @@ export class UI implements UIHooks {
         <div class="prow"><input id="pCode" maxlength="5" placeholder="참가 코드 5자리" autocomplete="off"><button class="btn big" id="pJoin">참가하기</button></div>`;
     } else {
       const list = [`<li><b>${esc(this.hero.name)}</b> Lv.${this.hero.level} (나${c.role === 'host' ? ' · 방장' : ''})</li>`]
-        .concat([...c.players.values()].map((p) => `<li><b>${esc(p.name)}</b> Lv.${p.level} <span class="dim">· ${esc(MAP_NAME[p.map] ?? p.map)}</span></li>`));
+        .concat([...c.players.values()].map((p) => `<li><b>${esc(p.name)}</b> Lv.${p.level} <span class="dim">· ${esc(MAP_NAME[p.map] ?? p.map)}</span>${p.map !== this.g.map.id ? ` <button class="btn small" data-go="${esc(p.map)}">합류하기</button>` : ' <span class="dim small">(같은 지역)</span>'}</li>`));
       body = `
         ${c.role === 'host' ? `<p>친구에게 이 코드를 알려 주세요</p><div class="bigcode">${c.code}</div>` : `<p>방 <b>${c.code}</b> 에 참가 중</p>`}
         <ul class="plist">${list.join('')}</ul>
-        <p class="dim small">Enter 키로 채팅할 수 있습니다.${c.role === 'guest' ? ' 방장과 같은 지역에 가야 몬스터를 함께 잡습니다.' : ''}</p>
+        <p class="dim small">Enter 키로 채팅할 수 있습니다. 서로 다른 마을에서 시작했다면 <b>합류하기</b>로 상대가 있는 지역으로 바로 갈 수 있습니다.${c.role === 'guest' ? ' 방장과 같은 지역에 있어야 몬스터를 함께 잡습니다.' : ''}</p>
         <button class="btn" id="pLeave">${c.role === 'host' ? '방 닫기' : '방 나가기'}</button>`;
     }
     this.openModal('party', `
@@ -924,6 +924,11 @@ export class UI implements UIHooks {
       };
       setTimeout(() => inp.focus(), 50);
     }
+    document.querySelectorAll<HTMLButtonElement>('#modal [data-go]').forEach((b) => (b.onclick = () => {
+      const err = this.g.goToPartner(b.dataset.go!);
+      if (err) { this.toast(err, '#ff9a8a'); sfx('deny'); return; }
+      this.closeModal();
+    }));
     if (q('pLeave')) q('pLeave')!.onclick = () => { c.leave(c.role === 'host' ? '방을 닫았습니다.' : '방에서 나왔습니다.'); this.openParty(); };
   }
 
